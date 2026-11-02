@@ -35,7 +35,7 @@ class RegisterRequest(BaseModel):
         v = v.strip().lower()
         if not _EMAIL_RE.match(v):
             raise ValueError("Enter a valid email address.")
-        return v
+         return v
 
     @field_validator("password")
     @classmethod

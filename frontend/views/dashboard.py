@@ -12,8 +12,6 @@ resume = get_latest_resume()
 if resume is None:
     recs = []
 else:
-    # UC011: prefer the user's stored (unfiltered) recommendations; only recompute live if
-    # nothing has been stored yet (e.g. first visit) -- that live call then gets stored too.
     recs = call("GET", "/recommendations/latest")
     if not recs:
         recs = call("POST", "/recommendations", json={"resume_id": resume["id"], "k": 2})
@@ -44,11 +42,8 @@ with col_rec:
 with col_skill:
     with st.container(border=True):
         st.subheader("Skill Match Summary")
-        # UC011 step 4: prefer the latest stored skill match; only compute live (for the top
-        # recommendation) if nothing has been checked yet -- that live call then gets stored too.
         gap, err = soft("GET", "/skill-gap/latest")
         if not gap and recs:
-            # explain=False: this card never shows the explanation, so skip paying for the LLM call.
             gap, err = soft("POST", "/skill-gap",
                             json={"resume_id": resume["id"], "job_id": recs[0]["job_id"], "explain": False})
         if not gap:

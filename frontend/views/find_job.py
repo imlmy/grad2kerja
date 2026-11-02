@@ -1,7 +1,10 @@
+import html
+
 import streamlit as st
 
 from frontend.common import (
-    call, get_latest_resume, nav, page_header, pills, require_login, select_job, start_interview,
+    call, company_avatar, get_latest_resume, match_badge, nav, page_header, pills, require_login,
+    select_job, start_interview,
 )
 
 require_login()
@@ -30,25 +33,50 @@ if profile_location:
     st.session_state.setdefault("rec_location", profile_location)
 
 
+def _meta_line(location: str, job_type: str | None) -> str:
+    parts = [
+        '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:text-bottom;">'
+        f'location_on</span> {html.escape(location)}'
+    ]
+    if job_type:
+        parts.append(
+            '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:text-bottom;">'
+            f'work</span> {html.escape(job_type)}'
+        )
+    return f'<span style="color:#64748B;font-size:0.85rem;">{"&nbsp;&nbsp;&nbsp;".join(parts)}</span>'
+
+
+def _empty_state(icon: str, message: str, button_label: str | None = None, button_key: str | None = None) -> bool:
+    """A centred placeholder for an empty list: a large Material icon, one line of text, and
+    optionally the action button that would fix it."""
+    st.markdown(
+        f'<div class="g2k-empty-state"><span class="material-symbols-outlined">{icon}</span>'
+        f'<div>{html.escape(message)}</div></div>',
+        unsafe_allow_html=True,
+    )
+    if button_label:
+        _, mid, _ = st.columns([2, 1, 2])
+        with mid:
+            return st.button(button_label, type="primary", key=button_key, use_container_width=True)
+    return False
+
+
 def job_card(job: dict, context: str, match_pct: int | None = None, matched: list[str] | None = None) -> None:
     jid = job["job_id"]
     is_saved = jid in saved_ids
     if match_pct is None:
         match_pct = recommended_pct.get(jid)
-    with st.container(border=True):
-        left, right = st.columns([5, 2])
-        with left:
+    with st.container(border=True, key=f"g2k_card_{context}_{jid}"):
+        avatar_col, info_col, badge_col = st.columns([1, 5, 2])
+        with avatar_col:
+            st.markdown(company_avatar(job["company"]), unsafe_allow_html=True)
+        with info_col:
             st.markdown(f"**{job['title']}**")
-            st.caption(f"{job['company']} · {job['location']}")
-        with right:
-            tags = []
-            if job.get("type"):
-                tags.append(f'<span class="g2k-pill g2k-neutral">{job["type"]}</span>')
+            st.caption(job["company"])
+            st.markdown(_meta_line(job["location"], job.get("type")), unsafe_allow_html=True)
+        with badge_col:
             if match_pct is not None:
-                tags.append('<span class="g2k-pill g2k-neutral">✨ AI Recommended</span>')
-                tags.append(f'<span class="g2k-pill g2k-match">{match_pct}% Match</span>')
-            if tags:
-                st.markdown(" ".join(tags), unsafe_allow_html=True)
+                st.markdown(match_badge(match_pct, "ai"), unsafe_allow_html=True)
         if job.get("summary"):
             st.write(job["summary"])
         if matched:
@@ -56,13 +84,14 @@ def job_card(job: dict, context: str, match_pct: int | None = None, matched: lis
             pills(matched, "match")
 
         b1, b2, b3, b4 = st.columns(4)
-        if b1.button("View Details", key=f"det-{context}-{jid}"):
+        if b1.button("View Details", key=f"det-{context}-{jid}", icon=":material/visibility:"):
             select_job(jid, "job_details")
-        if b2.button("View Skill Match", key=f"sm-{context}-{jid}"):
+        if b2.button("View Skill Match", key=f"sm-{context}-{jid}", icon=":material/checklist:"):
             select_job(jid, "skill_match")
-        if b3.button("Practise Interview", key=f"int-{context}-{jid}"):
+        if b3.button("Practise Interview", key=f"int-{context}-{jid}", icon=":material/mic:"):
             start_interview(jid)
-        if b4.button("🔖 Saved" if is_saved else "🔖 Save", key=f"save-{context}-{jid}",
+        if b4.button("Saved" if is_saved else "Save", key=f"save-{context}-{jid}",
+                     icon=":material/bookmark_added:" if is_saved else ":material/bookmark:",
                      type="primary" if is_saved else "secondary"):
             if is_saved:
                 call("DELETE", f"/saved-jobs/{jid}")
@@ -97,7 +126,7 @@ if tab == "Browse All":
     data = call("GET", "/jobs", params=params)
 
     if not data["items"]:
-        st.info("No jobs match these filters.")
+        _empty_state("search_off", "No jobs match these filters.")
     for job in data["items"]:
         job_card(job, "browse")
 
@@ -114,8 +143,8 @@ if tab == "Browse All":
 elif tab == "AI Recommended":
     resume = get_latest_resume()
     if resume is None:
-        st.info("Upload your resume to get AI-ranked job recommendations.")
-        if st.button("Upload resume", type="primary", key="find_upload"):
+        if _empty_state("upload_file", "Upload your resume to get AI-ranked job recommendations.",
+                        "Upload resume", "find_upload"):
             nav("resume")
     else:
         options = call("GET", "/jobs/options")
@@ -135,8 +164,8 @@ elif tab == "AI Recommended":
         recs = call("POST", "/recommendations", json=payload)
         any_filter = category != "All" or job_type != "All" or bool(location)
         if not recs:
-            st.info("No matching jobs found. Try removing filters." if any_filter else
-                     "No recommendations found for your resume.")
+            _empty_state("work_off", "No matching jobs found. Try removing filters." if any_filter else
+                         "No recommendations found for your resume.")
         for r in recs:
             job_card(r, "rec", match_pct=r["match_pct"], matched=r["matched_skills"])
 
@@ -144,6 +173,6 @@ else:
     st.caption("Jobs you've bookmarked for later.")
     saved = call("GET", "/saved-jobs")
     if not saved:
-        st.info("No saved jobs yet. Save a role to keep it here.")
+        _empty_state("bookmark_border", "No saved jobs yet. Save a role to keep it here.")
     for job in saved:
         job_card(job, "saved")

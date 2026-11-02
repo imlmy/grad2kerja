@@ -1,6 +1,21 @@
 import streamlit as st
 
-from frontend.common import nav, page_header, require_login, score_label, soft
+from frontend.common import nav, page_header, require_login, score_label, score_tier, soft, type_tag
+
+
+def _step_indicator(current: int, total: int) -> None:
+    """Filled/empty dots for questions 1..total, replacing a plain progress bar."""
+    dots = "".join(
+        '<span style="display:inline-block; width:10px; height:10px; border-radius:50%; '
+        f'margin:0 4px; background:{"#0B3FB8" if i <= current else "#E2E8F0"};"></span>'
+        for i in range(total)
+    )
+    st.markdown(
+        f'<div style="text-align:center;">{dots}</div>'
+        f'<div style="text-align:center; color:#64748B; font-size:0.85rem; margin-top:0.4rem;">'
+        f'Question {current + 1} of {total}</div>',
+        unsafe_allow_html=True,
+    )
 
 require_login()
 session = st.session_state.get("interview")
@@ -37,13 +52,13 @@ if idx >= total:
         nav("feedback_report")
     st.stop()
 
-st.progress(idx / total, text=f"Question {idx + 1} of {total}")
+_step_indicator(idx, total)
 question = questions[idx]
 qid = question["id"]
 
 with st.container(border=True):
     if question.get("type"):
-        st.caption(question["type"].capitalize())
+        st.markdown(type_tag(question["type"]), unsafe_allow_html=True)
     st.markdown(f"**{question['question']}**")
 
 if qid in answers:
@@ -54,7 +69,8 @@ if qid in answers:
     with st.container(border=True):
         st.caption("AI interview feedback")
         st.markdown(
-            f'<div class="g2k-score">{result["score"]}<span> / 10</span></div>',
+            f'<div class="g2k-score g2k-text-{score_tier(result["score"] * 10)}">'
+            f'{result["score"]}<span> / 10</span></div>',
             unsafe_allow_html=True,
         )
         st.write(f"**{score_label(result['score'])}**")

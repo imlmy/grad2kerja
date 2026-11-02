@@ -1,0 +1,16 @@
+streamlit==1.64.0
+fastapi==0.141.1
+uvicorn==0.53.0
+pandas==3.0.6
+numpy==2.5.3
+sentence-transformers==6.1.0
+spacy==3.8.16
+rapidfuzz==3.14.6
+pdfplumber==0.11.10
+openai==3.19.2
+python-dotenv==1.2.3
+requests==2.34.2
+plotly==7.1.0
+
+# Also needed, installed separately (not a plain PyPI package):
+# python -m spacy download en_core_web_sm

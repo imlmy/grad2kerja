@@ -1,8 +1,10 @@
 """Shared helpers for the Streamlit pages: backend client, navigation, styling and small widgets."""
+import hashlib
 import html
 import os
 from datetime import datetime
 
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 
@@ -24,7 +26,21 @@ def format_date(value: str | None) -> str:
 
 STYLE = """
 <style>
-.g2k-pill { 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
+
+html, body, [class*="st-"], [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    vertical-align: middle;
+}
+.g2k-pill {
     display:inline-block; 
     padding:2px 10px; 
     border-radius:999px; 
@@ -73,10 +89,87 @@ STYLE = """
     padding:0 3px;
 }
 .g2k-hl-missing {
-    background:#FEF3C7; 
-    color:#92400E; 
-    border-radius:4px; 
+    background:#FEF3C7;
+    color:#92400E;
+    border-radius:4px;
     padding:0 3px;
+}
+.g2k-tier-high {
+    background:#DCFCE7;
+    color:#166534;
+}
+.g2k-tier-mid {
+    background:#FEF3C7;
+    color:#92400E;
+}
+.g2k-tier-low {
+    background:#FEE2E2;
+    color:#991B1B;
+}
+.g2k-text-high {
+    color:#166534;
+}
+.g2k-text-mid {
+    color:#92400E;
+}
+.g2k-text-low {
+    color:#991B1B;
+}
+.g2k-avatar {
+    width:40px;
+    height:40px;
+    min-width:40px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#FFFFFF;
+    font-weight:700;
+    font-size:1.05rem;
+    flex-shrink:0;
+}
+.g2k-stat-tile {
+    border:1px solid #E2E8F0;
+    border-radius:12px;
+    padding:1.1rem 1.25rem;
+    display:flex;
+    flex-direction:column;
+    gap:0.3rem;
+}
+.g2k-stat-tile .material-symbols-outlined {
+    color:#0B3FB8;
+    font-size:1.6rem;
+}
+.g2k-stat-value {
+    font-size:1.8rem;
+    font-weight:700;
+    color:#0F172A;
+    line-height:1.1;
+}
+.g2k-stat-label {
+    font-size:0.72rem;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:#64748B;
+    font-weight:600;
+}
+.g2k-empty-state {
+    text-align:center;
+    padding:2.5rem 1rem;
+    color:#64748B;
+}
+.g2k-empty-state .material-symbols-outlined {
+    font-size:2.75rem;
+    color:#94A3B8;
+    margin-bottom:0.5rem;
+}
+[class*="st-key-g2k_card"] {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    border-radius:12px;
+}
+[class*="st-key-g2k_card"]:hover {
+    box-shadow: 0 8px 20px rgba(15,23,42,0.10);
+    transform: translateY(-2px);
 }
 </style>
 """
@@ -250,6 +343,106 @@ def pills(items: list[str], kind: str) -> None:
         return
     tags = " ".join(f'<span class="g2k-pill g2k-{kind}">{html.escape(i.title())}</span>' for i in items)
     st.markdown(tags, unsafe_allow_html=True)
+
+
+def score_tier(pct: float) -> str:
+    """Bucket a 0-100 percentage into "high" (>=70), "mid" (50-69) or "low" (<50) -- the one
+    scale g2k-tier-* CSS and the Plotly chart colours below are both keyed on."""
+    if pct >= 70:
+        return "high"
+    if pct >= 50:
+        return "mid"
+    return "low"
+
+
+_TIER_HEX = {"high": "#166534", "mid": "#92400E", "low": "#991B1B"}
+
+
+def tier_hex(pct: float) -> str:
+    """The hex colour for score_tier(pct) -- for Plotly marker colours, which can't use the
+    g2k-tier-* CSS classes."""
+    return _TIER_HEX[score_tier(pct)]
+
+
+def match_badge(pct: float, kind: str) -> str:
+    """An HTML pill for a match percentage, coloured by score_tier(). kind="ai" is the semantic
+    resume-vs-job match ("✨ N% AI Match"); kind="skill" is the skills-only match ("✓ N% Skill
+    Match") -- always labelled so the two numbers are never confused for each other."""
+    pct_display = round(pct)
+    tier = score_tier(pct_display)
+    label = f"✨ {pct_display}% AI Match" if kind == "ai" else f"✓ {pct_display}% Skill Match"
+    return f'<span class="g2k-pill g2k-tier-{tier}">{html.escape(label)}</span>'
+
+
+_TYPE_COLORS = {
+    "behavioural": ("#DBEAFE", "#1E40AF"),
+    "technical": ("#EDE9FE", "#6D28D9"),
+    "situational": ("#CCFBF1", "#0F766E"),
+}
+
+
+def type_tag(question_type: str) -> str:
+    """A coloured HTML tag for a mock-interview question's type (behavioural=blue,
+    technical=purple, situational=teal) -- shared between interview.py and feedback_report.py
+    so a question's type always looks the same colour wherever it's shown."""
+    bg, fg = _TYPE_COLORS.get((question_type or "").lower(), ("#E0E7FF", "#0B3FB8"))
+    label = html.escape((question_type or "").capitalize())
+    return f'<span class="g2k-pill" style="background:{bg}; color:{fg};">{label}</span>'
+
+
+_AVATAR_COLORS = ["#0B3FB8", "#166534", "#92400E", "#7C3AED", "#BE185D", "#0E7490"]
+
+
+def company_avatar(name: str) -> str:
+    """An HTML circle with the company's first letter, on a colour picked deterministically from
+    a small palette by hashing the name (same company -> same colour, every time -- Python's
+    built-in hash() is randomised per process, so it can't be used for this)."""
+    clean = (name or "").strip()
+    letter = clean[:1].upper() or "?"
+    idx = int(hashlib.md5(clean.encode()).hexdigest(), 16) % len(_AVATAR_COLORS)
+    color = _AVATAR_COLORS[idx]
+    return f'<div class="g2k-avatar" style="background:{color};">{html.escape(letter)}</div>'
+
+
+def stat_tile(label: str, value: str, icon: str) -> None:
+    """A small card: a large value, a small uppercase label, and a Material icon -- used for the
+    dashboard's summary row."""
+    st.markdown(
+        f'<div class="g2k-stat-tile">'
+        f'<span class="material-symbols-outlined">{html.escape(icon)}</span>'
+        f'<div class="g2k-stat-value">{html.escape(str(value))}</div>'
+        f'<div class="g2k-stat-label">{html.escape(label.upper())}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def donut(pct: float | None, label: str) -> go.Figure:
+    """A Plotly donut with the percentage in the centre, coloured by score_tier(). Render with
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})."""
+    pct_display = max(0, min(100, round(pct or 0)))
+    color = _TIER_HEX[score_tier(pct_display)]
+    fig = go.Figure(data=[go.Pie(
+        values=[pct_display, 100 - pct_display],
+        hole=0.72,
+        sort=False,
+        direction="clockwise",
+        marker=dict(colors=[color, "#E2E8F0"]),
+        textinfo="none",
+        hoverinfo="skip",
+    )])
+    fig.update_layout(
+        showlegend=False,
+        height=180,
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        annotations=[dict(
+            text=f"<b>{pct_display}%</b><br><span style='font-size:11px;color:#64748B'>{html.escape(label)}</span>",
+            x=0.5, y=0.5, showarrow=False, font=dict(size=22, color=color),
+        )],
+    )
+    return fig
 
 
 def score_label(score_10: float) -> str:

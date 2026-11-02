@@ -1,8 +1,25 @@
+import html
+
 import streamlit as st
 
 from frontend.common import (
-    call, get_latest_resume, nav, page_header, pills, require_login, start_interview, upload_prompt,
+    call, donut, get_latest_resume, nav, page_header, pills, require_login, start_interview,
+    upload_prompt,
 )
+
+
+def _checklist(items: list[str], matched: bool) -> None:
+    if not items:
+        st.caption("None")
+        return
+    mark, color = ("✓", "#166534") if matched else ("✗", "#92400E")
+    rows = "".join(
+        '<div style="display:flex; align-items:center; gap:0.5rem; padding:3px 0;">'
+        f'<span style="color:{color}; font-weight:700;">{mark}</span>'
+        f'<span>{html.escape(item.title())}</span></div>'
+        for item in items
+    )
+    st.markdown(rows, unsafe_allow_html=True)
 
 require_login()
 jid = st.session_state.get("selected_job_id")
@@ -28,14 +45,16 @@ if st.button("← Back to job", key="sm_back"):
 page_header("Skill Match Analysis", job["title"])
 
 with st.container(border=True):
+    st.subheader("Skill Match", help="Skill Match counts the skills listed on this job posting "
+                 "only -- it's not a semantic read of the full description (that's the AI Match "
+                 "% shown on Job Details).")
     if gap["match_pct"] is None:
         st.info(gap["message"])
     else:
-        st.markdown(
-            f'<div class="g2k-score">{gap["match_pct"]:.0f}%<span> skill match</span></div>',
-            unsafe_allow_html=True,
-        )
-        st.progress(gap["match_pct"] / 100)
+        _, mid, _ = st.columns([1, 2, 1])
+        with mid:
+            st.plotly_chart(donut(gap["match_pct"], "Skill Match"), use_container_width=True,
+                            config={"displayModeBar": False})
         total = len(gap["matched"]) + len(gap["missing"])
         if total:
             st.caption(f"You match {len(gap['matched'])} out of {total} required skills for this role.")
@@ -43,18 +62,19 @@ with st.container(border=True):
             st.info(gap["message"])
             # UC008 alt flow 3.1: no skills on the resume -- point the user at fixing that, not
             # just the skill/missing lists below, which would all be empty/unhelpful here.
-            if not resume["skills"] and st.button("Go to Resume Upload", type="primary", key="sm_upload"):
+            if not resume["skills"] and st.button("Go to Resume Upload", type="primary", key="sm_upload",
+                                                   icon=":material/upload_file:"):
                 nav("resume")
 
 c1, c2 = st.columns(2, gap="medium")
 with c1:
     with st.container(border=True):
         st.subheader("Matched skills")
-        pills(gap["matched"], "match")
+        _checklist(gap["matched"], matched=True)
 with c2:
     with st.container(border=True):
         st.subheader("Missing skills")
-        pills(gap["missing"], "missing")
+        _checklist(gap["missing"], matched=False)
 
 if gap["matched_languages"] or gap["missing_languages"]:
     l1, l2 = st.columns(2, gap="medium")

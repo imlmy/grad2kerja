@@ -26,25 +26,25 @@ SKILLS = [
     "erp systems", "computer hardware", "social media analytics tools",
 
     # Business / domain skills
-    "sales", "customer service", "logistics", "accounting", "accounting principles",
+    "sales", "customer service", "accounting", "accounting principles",
     "accounting standards", "audit", "bookkeeping", "digital marketing", "marketing",
     "social media management", "influencer marketing", "seo", "copywriting",
     "data analysis", "data manipulation", "data modeling", "purchasing", "procurement",
-    "sourcing", "human resources", "recruitment", "banking", "call centre", "retail",
+    "sourcing", "human resources", "recruitment", "banking", "call centre",
     "business development", "business strategy", "strategic planning", "finance",
     "financial reporting", "telemarketing", "video editing", "video shooting",
-    "manufacturing", "insurance", "mortgage", "spreadsheets", "administration",
+    "mortgage", "spreadsheets", "administration",
     "sales administration", "treasury", "costing", "claims processing",
     "asset management", "accounts payable", "international trade regulations",
     "employment law knowledge", "production planning", "due diligence",
     "credit card processing", "payroll processing", "project management",
     "project documentation", "process optimization", "product development",
-    "healthcare", "industrial relations practices",
+    "industrial relations practices",
 
     # Technical / engineering
     "software development", "application development", "scripting", "networking",
     "troubleshooting", "restful apis", "mvc architecture", "continuous integration",
-    "secure coding practices", "electrical", "electronics", "wiring",
+    "secure coding practices", "electronics", "wiring",
     "reading schematics", "3d design", "graphic design", "design fundamentals",
     "manufacturing line", "lab equipment", "laboratory procedures",
 
@@ -84,7 +84,6 @@ ALIASES = {
     "after effect": "adobe after effects",
     # Programming / IT
     "html5": "html",
-    "network": "networking",
     "restful api": "restful apis",
     "computerized accounting systems": "accounting software",
     "sql accounting software": "sql accounting",
@@ -137,11 +136,12 @@ ALIASES = {
 # ------------------------------------------------------------- languages
 # Kept separate from SKILLS, as in the report (Section 3.5).
 LANGUAGES = [
-    "english", "mandarin", "chinese", "bahasa malaysia", "cantonese", "japanese",
+    "english", "mandarin", "bahasa malaysia", "cantonese", "japanese",
 ]
 
 LANGUAGE_ALIASES = {
     "mandarin language": "mandarin",
+    "chinese": "mandarin",
     "bahasa melayu": "bahasa malaysia",
     "malay": "bahasa malaysia",
 }

@@ -219,3 +219,10 @@ __marimo__/
 
 # Dataset
 data/*.csv
+data/*.npy
+
+# Cached comparison artifacts (regenerate via notebooks/encode_mpnet_lean.py)
+notebooks/.cache/
+
+# App database
+data/*.db

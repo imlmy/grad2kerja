@@ -55,7 +55,7 @@ page_header(
     "We'll extract your skills, languages, education, experience and projects to match you "
     "with suitable roles. Review and edit anything that looks off before continuing.",
 )
-if st.button("← Back to dashboard", key="rs_back"):
+if st.button("Back to dashboard", key="rs_back", icon=":material/arrow_back:"):
     nav("dashboard")
 
 uploaded = st.file_uploader(

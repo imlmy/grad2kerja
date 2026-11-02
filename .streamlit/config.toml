@@ -3,4 +3,7 @@ primaryColor = "#0B3FB8"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F5F7FB"
 textColor = "#0F172A"
-font = "sans serif"
+font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+
+[client]
+toolbarMode = "viewer"

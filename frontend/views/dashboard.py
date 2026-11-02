@@ -39,10 +39,11 @@ with t4:
     stat_tile("Avg Interview Score", f"{avg_interview_score}/100" if avg_interview_score is not None else "—",
               "trending_up")
 
+st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
 col_rec, col_skill, col_perf = st.columns(3, gap="medium")
 
 with col_rec:
-    with st.container(border=True):
+    with st.container(border=True, height="stretch"):
         st.subheader("Top Recommendations")
         if resume is None:
             st.caption("Upload a resume to see job matches.")
@@ -63,7 +64,7 @@ with col_rec:
             nav("find_job")
 
 with col_skill:
-    with st.container(border=True):
+    with st.container(border=True, height="stretch"):
         st.subheader("Skill Match Summary")
         gap, err = soft("GET", "/skill-gap/latest")
         if not gap and recs:
@@ -85,7 +86,7 @@ with col_skill:
                 select_job(gap["job_id"], "skill_match")
 
 with col_perf:
-    with st.container(border=True):
+    with st.container(border=True, height="stretch"):
         st.subheader("Interview Performance")
         if completed_sessions:
             latest = completed_sessions[0]
@@ -112,7 +113,7 @@ with col_perf:
         if st.button("View interview history", key="dash_history"):
             nav("interview_history")
 
-st.write("")
+st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
 with st.container(key="g2k_refine_profile"):
     c1, c2 = st.columns([3, 1], vertical_alignment="center")
     with c1:

@@ -30,7 +30,7 @@ total = len(questions)
 answers = st.session_state.setdefault("interview_answers", {})
 idx = st.session_state.get("q_index", 0)
 
-if st.button("← Back", key="iv_back"):
+if st.button("Back", key="iv_back", icon=":material/arrow_back:"):
     # Answers already submitted are saved server-side regardless of navigation.
     st.session_state["selected_job_id"] = session["job_id"]
     nav("job_details")

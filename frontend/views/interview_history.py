@@ -5,7 +5,7 @@ from frontend.common import call, format_date, nav, page_header, require_login
 PAGE_SIZE = 10
 
 require_login()
-if st.button("← Back", key="ih_back"):
+if st.button("Back", key="ih_back", icon=":material/arrow_back:"):
     nav("dashboard")
 page_header("Interview History", "Track your progress across mock interviews")
 

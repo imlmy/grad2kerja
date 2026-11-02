@@ -4,7 +4,7 @@ import re
 import streamlit as st
 
 from frontend.common import (
-    call, company_avatar, format_date, get_latest_resume, match_badge, nav, page_header, pills,
+    call, company_avatar, format_date, get_latest_resume, match_badge, nav, pills,
     require_login, soft, start_interview,
 )
 
@@ -159,14 +159,14 @@ def _apply_dialog(jid: int, job_match: dict | None, resume: dict | None) -> None
         needs_practice = True
 
     if needs_practice:
-        c1, c2 = st.columns(2)
-        if c1.button("Check Skill Match", key="apply_skill_match", icon=":material/checklist:"):
-            st.session_state["show_apply_dialog"] = False
-            st.session_state["selected_job_id"] = jid
-            nav("skill_match")
-        if c2.button("Practise Interview", key="apply_practise", icon=":material/mic:"):
-            st.session_state["show_apply_dialog"] = False
-            start_interview(jid)
+        with st.container(horizontal=True, gap="small"):
+            if st.button("Check Skill Match", key="apply_skill_match", icon=":material/checklist:"):
+                st.session_state["show_apply_dialog"] = False
+                st.session_state["selected_job_id"] = jid
+                nav("skill_match")
+            if st.button("Practise Interview", key="apply_practise", icon=":material/mic:"):
+                st.session_state["show_apply_dialog"] = False
+                start_interview(jid)
 
     if st.button("Apply", type="primary", key="apply_confirm", icon=":material/send:"):
         st.session_state["apply_confirmed"] = True
@@ -186,32 +186,37 @@ def _format_list(items: list[str]) -> str:
     return ", ".join(items[:-1]) + " and " + items[-1]
 
 
-if st.button("← Back to jobs", key="jd_back", icon=":material/arrow_back:"):
+if st.button("Back to jobs", key="jd_back", icon=":material/arrow_back:"):
     nav("find_job")
-
-avatar_col, title_col = st.columns([1, 11], vertical_alignment="center")
-with avatar_col:
-    st.markdown(company_avatar(job["company"]), unsafe_allow_html=True)
-with title_col:
-    page_header(job["title"], f"{job['company']} · {job['location']}")
-
-tags = [f'<span class="g2k-pill g2k-neutral">{job["type"] or "Full time"}</span>',
-        f'<span class="g2k-pill g2k-neutral">{job["category"]}</span>']
 
 resume = get_latest_resume()
 job_match = None
 if resume is not None:
     job_match = call("GET", f"/jobs/{jid}/match")
 
+_match_help = ("A semantic match of your whole resume against this job's full description -- "
+               "not the skills-only percentage shown on Skill Match.")
+badge_html = (
+    f'<span title="{html.escape(_match_help)}">{match_badge(job_match["match_pct"], "ai")}</span>'
+    if job_match is not None else ""
+)
+st.markdown(
+    '<div style="display:flex; align-items:center; gap:0.75rem;">'
+    f'{company_avatar(job["company"])}'
+    '<div style="flex:1; min-width:0;">'
+    f'<div style="font-size:1.6rem; font-weight:700; line-height:1.2;">{html.escape(job["title"])}</div>'
+    f'<div style="color:#64748B;">{html.escape(job["company"])} · {html.escape(job["location"])}</div>'
+    '</div>'
+    f'<div style="flex-shrink:0;">{badge_html}</div>'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+tags = [f'<span class="g2k-pill g2k-neutral">{job["type"] or "Full time"}</span>',
+        f'<span class="g2k-pill g2k-neutral">{job["category"]}</span>']
 if job_match is not None and jid in recommended_pct:
     tags.append('<span class="g2k-pill g2k-neutral">✨ AI Recommended</span>')
 st.markdown(" ".join(tags), unsafe_allow_html=True)
-if job_match is not None:
-    st.markdown(
-        match_badge(job_match["match_pct"], "ai"), unsafe_allow_html=True,
-        help="A semantic match of your whole resume against this job's full description -- "
-             "not the skills-only percentage shown on Skill Match.",
-    )
 
 # AI Insight: a template filled from the semantic match, not an LLM call -- cheap, instant, and
 # never overwrites the dashboard's stored skill match (that's a separate, deliberate action on
@@ -272,16 +277,16 @@ with right:
     if st.session_state.get("show_apply_dialog"):
         _apply_dialog(jid, job_match, resume)
 
-    b1, b2, b3 = st.columns(3)
-    if b1.button("View Skill Match", key="jd_skill", icon=":material/checklist:"):
-        nav("skill_match")
-    if b2.button("Practise Interview", key="jd_interview", icon=":material/mic:"):
-        start_interview(jid)
-    if b3.button("Saved" if is_saved else "Save", key="jd_save",
-                 icon=":material/bookmark_added:" if is_saved else ":material/bookmark:",
-                 type="primary" if is_saved else "secondary"):
-        if is_saved:
-            call("DELETE", f"/saved-jobs/{jid}")
-        else:
-            call("POST", "/saved-jobs", json={"job_id": jid})
-        st.rerun()
+    with st.container(horizontal=True, gap="small"):
+        if st.button("View Skill Match", key="jd_skill", icon=":material/checklist:"):
+            nav("skill_match")
+        if st.button("Practise Interview", key="jd_interview", icon=":material/mic:"):
+            start_interview(jid)
+        if st.button("Saved" if is_saved else "Save", key="jd_save",
+                     icon=":material/bookmark_added:" if is_saved else ":material/bookmark:",
+                     type="primary" if is_saved else "secondary"):
+            if is_saved:
+                call("DELETE", f"/saved-jobs/{jid}")
+            else:
+                call("POST", "/saved-jobs", json={"job_id": jid})
+            st.rerun()

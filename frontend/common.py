@@ -26,11 +26,14 @@ def format_date(value: str | None) -> str:
 
 STYLE = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
 
-html, body, [class*="st-"], [class*="css"] {
-    font-family: 'Inter', sans-serif;
+/* The app font (Inter) is set via .streamlit/config.toml's [theme] font instead of a blanket
+   CSS rule here -- a rule like [class*="st-"] { font-family: 'Inter' } also overrides
+   Streamlit's own Material Symbols Rounded icon font, which is what made icon="" names like
+   "arrow_back" render as literal text. This fallback keeps native icons correct regardless. */
+[data-testid="stIconMaterial"] {
+    font-family: "Material Symbols Rounded" !important;
 }
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
@@ -39,6 +42,10 @@ html, body, [class*="st-"], [class*="css"] {
     font-size: 24px;
     line-height: 1;
     vertical-align: middle;
+}
+.block-container {
+    max-width: 1200px;
+    padding-top: 2rem;
 }
 .g2k-pill {
     display:inline-block; 

@@ -67,37 +67,40 @@ def job_card(job: dict, context: str, match_pct: int | None = None, matched: lis
     if match_pct is None:
         match_pct = recommended_pct.get(jid)
     with st.container(border=True, key=f"g2k_card_{context}_{jid}"):
-        avatar_col, info_col, badge_col = st.columns([1, 5, 2])
-        with avatar_col:
-            st.markdown(company_avatar(job["company"]), unsafe_allow_html=True)
-        with info_col:
-            st.markdown(f"**{job['title']}**")
-            st.caption(job["company"])
-            st.markdown(_meta_line(job["location"], job.get("type")), unsafe_allow_html=True)
-        with badge_col:
-            if match_pct is not None:
-                st.markdown(match_badge(match_pct, "ai"), unsafe_allow_html=True)
+        badge_html = match_badge(match_pct, "ai") if match_pct is not None else ""
+        st.markdown(
+            '<div style="display:flex; align-items:center; gap:0.6rem;">'
+            f'{company_avatar(job["company"])}'
+            '<div style="flex:1; min-width:0;">'
+            f'<div style="font-weight:600;">{html.escape(job["title"])}</div>'
+            f'<div style="color:#64748B; font-size:0.85rem;">{html.escape(job["company"])}</div>'
+            f'{_meta_line(job["location"], job.get("type"))}'
+            '</div>'
+            f'<div style="flex-shrink:0;">{badge_html}</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         if job.get("summary"):
             st.write(job["summary"])
         if matched:
             st.caption("Matched skills")
             pills(matched, "match")
 
-        b1, b2, b3, b4 = st.columns(4)
-        if b1.button("View Details", key=f"det-{context}-{jid}", icon=":material/visibility:"):
-            select_job(jid, "job_details")
-        if b2.button("View Skill Match", key=f"sm-{context}-{jid}", icon=":material/checklist:"):
-            select_job(jid, "skill_match")
-        if b3.button("Practise Interview", key=f"int-{context}-{jid}", icon=":material/mic:"):
-            start_interview(jid)
-        if b4.button("Saved" if is_saved else "Save", key=f"save-{context}-{jid}",
-                     icon=":material/bookmark_added:" if is_saved else ":material/bookmark:",
-                     type="primary" if is_saved else "secondary"):
-            if is_saved:
-                call("DELETE", f"/saved-jobs/{jid}")
-            else:
-                call("POST", "/saved-jobs", json={"job_id": jid})
-            st.rerun()
+        with st.container(horizontal=True, gap="small"):
+            if st.button("View Details", key=f"det-{context}-{jid}", icon=":material/visibility:"):
+                select_job(jid, "job_details")
+            if st.button("View Skill Match", key=f"sm-{context}-{jid}", icon=":material/checklist:"):
+                select_job(jid, "skill_match")
+            if st.button("Practise Interview", key=f"int-{context}-{jid}", icon=":material/mic:"):
+                start_interview(jid)
+            if st.button("Saved" if is_saved else "Save", key=f"save-{context}-{jid}",
+                         icon=":material/bookmark_added:" if is_saved else ":material/bookmark:",
+                         type="primary" if is_saved else "secondary"):
+                if is_saved:
+                    call("DELETE", f"/saved-jobs/{jid}")
+                else:
+                    call("POST", "/saved-jobs", json={"job_id": jid})
+                st.rerun()
 
 
 if tab == "Browse All":

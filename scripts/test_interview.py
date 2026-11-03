@@ -55,6 +55,29 @@ with patch("modules.interview.OpenAI") as mock_cls:
     check("evaluate_answer coerces a numeric string score to int", result["score"] == 9)
 print()
 
+print("=== mocked: improved_answer parsing ===")
+with patch("modules.interview.OpenAI") as mock_cls:
+    mock_cls.return_value = mock_reply({
+        "score": 7, "strengths": "Clear.", "improvements": "More detail.",
+        "improved_answer": "I am organised and detail-oriented, as shown by [example].",
+    })
+    result = evaluate_answer("Tell me about yourself.", "I am organised and detail-oriented.", SAMPLE_JOB)
+    check("improved_answer is parsed when present",
+          result["improved_answer"] == "I am organised and detail-oriented, as shown by [example].")
+
+with patch("modules.interview.OpenAI") as mock_cls:
+    mock_cls.return_value = mock_reply({"score": 7, "strengths": "Clear.", "improvements": "More detail."})
+    result = evaluate_answer("Tell me about yourself.", "I am organised and detail-oriented.", SAMPLE_JOB)
+    check("missing improved_answer -> None without raising", result["improved_answer"] is None)
+
+with patch("modules.interview.OpenAI") as mock_cls:
+    mock_cls.return_value = mock_reply({
+        "score": 7, "strengths": "Clear.", "improvements": "More detail.", "improved_answer": "   ",
+    })
+    result = evaluate_answer("Tell me about yourself.", "I am organised and detail-oriented.", SAMPLE_JOB)
+    check("blank improved_answer -> None without raising", result["improved_answer"] is None)
+print()
+
 print("=== mocked: <answer> tag wrapping (prompt-injection defence) ===")
 with patch("modules.interview.OpenAI") as mock_cls:
     client = mock_reply({"score": 5, "strengths": "ok", "improvements": "ok"})

@@ -76,6 +76,11 @@ if qid in answers:
         st.write(f"**{score_label(result['score'])}**")
         st.write(f"**Done well:** {result['strengths']}")
         st.write(f"**To improve:** {result['improvements']}")
+        if result.get("improved_answer"):
+            with st.expander("See an improved version of your answer", icon=":material/auto_awesome:"):
+                st.caption("AI-suggested rewrite of your answer. Fill in the [bracketed] parts "
+                           "with your own real experience.")
+                st.write(result["improved_answer"])
     last = idx + 1 >= total
     if st.button("Finish interview" if last else "Next question", type="primary", key=f"next_{qid}"):
         st.session_state["q_index"] = idx + 1

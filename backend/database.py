@@ -100,6 +100,7 @@ def init_db() -> None:
         _migrate_resumes_table(conn)
         _migrate_interview_questions_table(conn)
         _migrate_interview_sessions_table(conn)
+        _migrate_interview_answers_table(conn)
 
 
 def _migrate_users_table(conn: sqlite3.Connection) -> None:
@@ -137,3 +138,9 @@ def _migrate_interview_sessions_table(conn: sqlite3.Connection) -> None:
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(interview_sessions)")}
     if "personalised" not in existing:
         conn.execute("ALTER TABLE interview_sessions ADD COLUMN personalised INTEGER NOT NULL DEFAULT 0")
+
+
+def _migrate_interview_answers_table(conn: sqlite3.Connection) -> None:
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(interview_answers)")}
+    if "improved_answer" not in existing:
+        conn.execute("ALTER TABLE interview_answers ADD COLUMN improved_answer TEXT")

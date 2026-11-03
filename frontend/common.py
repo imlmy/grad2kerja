@@ -368,7 +368,7 @@ def score_tier(pct: float) -> str:
     return "low"
 
 
-_TIER_HEX = {"high": "#166534", "mid": "#92400E", "low": "#991B1B"}
+_TIER_HEX = {"high": "#22C55E", "mid": "#F59E0B", "low": "#EF4444"}
 
 
 def tier_hex(pct: float) -> str:

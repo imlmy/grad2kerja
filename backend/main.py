@@ -635,7 +635,7 @@ def get_interview(session_id: int, user_id: int = Depends(current_user_id)) -> d
             raise HTTPException(404, "Interview not found")
         rows = conn.execute(
             "SELECT q.id, q.position, q.question, q.type, a.answer, a.transcribed, a.score, "
-            "a.strengths, a.improvements "
+            "a.strengths, a.improvements, a.improved_answer "
             "FROM interview_questions q LEFT JOIN interview_answers a ON a.question_id = q.id "
             "WHERE q.session_id = ? ORDER BY q.position",
             (session_id,),
@@ -644,7 +644,8 @@ def get_interview(session_id: int, user_id: int = Depends(current_user_id)) -> d
         {"id": r["id"], "position": r["position"], "question": r["question"], "type": r["type"],
          "answer": None if r["answer"] is None else {
              "text": r["answer"], "transcribed": bool(r["transcribed"]), "score": r["score"],
-             "strengths": r["strengths"], "improvements": r["improvements"]}}
+             "strengths": r["strengths"], "improvements": r["improvements"],
+             "improved_answer": r["improved_answer"]}}
         for r in rows
     ]
     answered = [q["answer"]["score"] for q in questions if q["answer"]]
@@ -675,7 +676,7 @@ def submit_answer(session_id: int, req: AnswerSubmit, user_id: int = Depends(cur
         if session is None:
             raise HTTPException(404, "Interview not found")
         question = conn.execute(
-            "SELECT question FROM interview_questions WHERE id = ? AND session_id = ?",
+            "SELECT question, type FROM interview_questions WHERE id = ? AND session_id = ?",
             (req.question_id, session_id),
         ).fetchone()
     if question is None:
@@ -686,14 +687,16 @@ def submit_answer(session_id: int, req: AnswerSubmit, user_id: int = Depends(cur
         raise ValueError("The answer is empty.")
 
     job = _job_or_404(session["job_id"])
-    evaluation = evaluate_answer(question["question"], answer_text, _interview_job(job))
+    evaluation = evaluate_answer(question["question"], answer_text, _interview_job(job),
+                                  question_type=question["type"])
 
     with db() as conn:
         conn.execute("DELETE FROM interview_answers WHERE question_id = ?", (req.question_id,))
         conn.execute(
-            "INSERT INTO interview_answers (question_id, answer, transcribed, score, strengths, improvements) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO interview_answers "
+            "(question_id, answer, transcribed, score, strengths, improvements, improved_answer) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (req.question_id, answer_text, int(req.transcribed), evaluation["score"],
-             evaluation["strengths"], evaluation["improvements"]),
+             evaluation["strengths"], evaluation["improvements"], evaluation["improved_answer"]),
         )
     return {"question_id": req.question_id, "answer": answer_text, "transcribed": req.transcribed, **evaluation}

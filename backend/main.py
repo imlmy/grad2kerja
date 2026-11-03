@@ -571,8 +571,17 @@ def create_interview(req: InterviewCreate, user_id: int = Depends(current_user_i
     job = _job_or_404(req.job_id)
     with db() as conn:
         resume_context = _resume_context(conn, _split(job["skills"]), user_id)
+        previous_questions = [
+            r["question"] for r in conn.execute(
+                "SELECT q.question FROM interview_sessions s "
+                "JOIN interview_questions q ON q.session_id = s.id "
+                "WHERE s.user_id = ? AND s.job_id = ? ORDER BY s.id DESC, q.position LIMIT 15",
+                (user_id, req.job_id),
+            ).fetchall()
+        ]
     personalised = bool(resume_context and (resume_context["skills"] or resume_context["projects"]))
-    questions = generate_questions(_interview_job(job), resume_context=resume_context, n=req.n)
+    questions = generate_questions(_interview_job(job), resume_context=resume_context, n=req.n,
+                                    previous_questions=previous_questions)
     with db() as conn:
         session_id = conn.execute(
             "INSERT INTO interview_sessions (user_id, job_id, personalised) VALUES (?, ?, ?)",

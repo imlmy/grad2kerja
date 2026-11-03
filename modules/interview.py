@@ -109,18 +109,42 @@ def _personalisation_block(resume_context: dict | None) -> str:
     )
 
 
-def generate_questions(job: dict, resume_context: dict | None = None, n: int = 5) -> list[dict]:
+PREVIOUS_QUESTIONS_CHAR_LIMIT = 1500
+
+
+def _previous_questions_block(previous_questions: list[str] | None) -> str:
+    """Build the "don't repeat these" section of the question prompt from questions the
+    candidate has already been asked for this job. Returns "" if there's nothing to list."""
+    items = [q for q in (previous_questions or []) if q]
+    if not items:
+        return ""
+    joined = "\n".join(items)[:PREVIOUS_QUESTIONS_CHAR_LIMIT]
+    return (
+        "\n\nThe candidate has already practised these questions for this job. Do not repeat or "
+        f"closely paraphrase them; ask about different aspects of the role:\n{joined}"
+    )
+
+
+def generate_questions(
+    job: dict, resume_context: dict | None = None, n: int = 5,
+    previous_questions: list[str] | None = None,
+) -> list[dict]:
     """Return n interview questions for a job, each {"question": ..., "type": ...}, with a mix
     of behavioural, technical and situational questions. Accepts >= n questions from the model
     and takes the first n. Raises ValueError if the output is malformed.
 
     resume_context, if given, is a dict with only "skills", "projects" and "missing_skills" --
     about 2 of the n questions are then personalised to the candidate. If it's None, or has no
-    skills and no projects, questions fall back to job-only (no error)."""
+    skills and no projects, questions fall back to job-only (no error).
+
+    previous_questions, if given, is a list of question texts the candidate has already been
+    asked for this job -- the prompt then asks the model to avoid repeating or closely
+    paraphrasing them. If empty or None, the prompt is unchanged."""
     prompt = (
         f"Write at least {n} interview questions for a fresh graduate applying for this job:\n\n"
         f"{_job_summary(job)}"
-        f"{_personalisation_block(resume_context)}\n\n"
+        f"{_personalisation_block(resume_context)}"
+        f"{_previous_questions_block(previous_questions)}\n\n"
         "Include a mix of behavioural, technical and situational questions -- not necessarily "
         "evenly split, but include at least one of each type if there are 3 or more questions. "
         'Reply with JSON only in this form: {"questions": [{"question": "...", '

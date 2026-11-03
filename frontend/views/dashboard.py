@@ -30,9 +30,11 @@ avg_interview_score = (
     if completed_sessions else None
 )
 
+strong_matches = sum(1 for r in all_recs if r["match_pct"] >= 60)
+
 t1, t2, t3, t4 = st.columns(4, gap="medium")
 with t1:
-    stat_tile("Jobs Matched", str(len(all_recs)), "work")
+    stat_tile("Strong matches (60%+)", str(strong_matches), "work")
 with t2:
     stat_tile("Saved Jobs", str(len(saved_jobs or [])), "bookmark")
 with t3:

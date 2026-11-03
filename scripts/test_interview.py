@@ -136,6 +136,32 @@ with patch("modules.interview.OpenAI") as mock_cls:
           "personalised" not in prompt.lower())
 print()
 
+print("=== mocked: previous_questions -> avoid-repeat block ===")
+with patch("modules.interview.OpenAI") as mock_cls:
+    client = mock_reply(MIX_OF_TYPES)
+    mock_cls.return_value = client
+    generate_questions(SAMPLE_JOB, n=3, previous_questions=["What is a REST API?", "Tell me about yourself."])
+    prompt = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    check("prompt contains the already-practised-questions block",
+          "already practised these questions" in prompt.lower())
+    check("prompt lists the given previous questions", "What is a REST API?" in prompt
+          and "Tell me about yourself." in prompt)
+
+with patch("modules.interview.OpenAI") as mock_cls:
+    client = mock_reply(MIX_OF_TYPES)
+    mock_cls.return_value = client
+    generate_questions(SAMPLE_JOB, n=3, previous_questions=None)
+    prompt = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    check("previous_questions=None -> no avoid-repeat block", "already practised" not in prompt.lower())
+
+with patch("modules.interview.OpenAI") as mock_cls:
+    client = mock_reply(MIX_OF_TYPES)
+    mock_cls.return_value = client
+    generate_questions(SAMPLE_JOB, n=3, previous_questions=[])
+    prompt = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    check("previous_questions=[] -> no avoid-repeat block", "already practised" not in prompt.lower())
+print()
+
 if failures:
     sys.exit(f"{failures} mocked check(s) failed.")
 print("All mocked checks passed.\n")

@@ -156,7 +156,13 @@ elif tab == "AI Recommended":
         job_type = c2.selectbox("Job type", ["All"] + options["types"], key="rec_type")
         location = c3.text_input("Location", placeholder="e.g. Kuala Lumpur", key="rec_location")
 
-        payload = {"resume_id": resume["id"], "k": 20}
+        rec_sig = (category, job_type, location)
+        if st.session_state.get("rec_sig") != rec_sig:
+            st.session_state["rec_sig"] = rec_sig
+            st.session_state["rec_k"] = 20
+        rec_k = st.session_state.get("rec_k", 20)
+
+        payload = {"resume_id": resume["id"], "k": rec_k}
         if category != "All":
             payload["category"] = category
         if job_type != "All":
@@ -171,6 +177,13 @@ elif tab == "AI Recommended":
                          "No recommendations found for your resume.")
         for r in recs:
             job_card(r, "rec", match_pct=r["match_pct"], matched=r["matched_skills"])
+
+        if len(recs) == rec_k and rec_k < 100:
+            if st.button("Load more", key="rec_load_more", icon=":material/expand_more:"):
+                st.session_state["rec_k"] = rec_k + 20
+                st.rerun()
+        elif recs:
+            st.caption(f"Showing your top {len(recs)} matches.")
 
 else:
     st.caption("Jobs you've bookmarked for later.")

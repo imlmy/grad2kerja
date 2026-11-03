@@ -1,8 +1,10 @@
+import html
+
 import plotly.graph_objects as go
 import streamlit as st
 
 from frontend.common import (
-    call, company_avatar, donut, format_date, get_latest_resume, match_badge, nav, page_header,
+    call, company_avatar, donut, get_latest_resume, match_badge, nav, page_header,
     pills, require_login, select_job, soft, stat_tile,
 )
 
@@ -17,8 +19,8 @@ if resume is None:
 else:
     all_recs = call("GET", "/recommendations/latest")
     if not all_recs:
-        all_recs = call("POST", "/recommendations", json={"resume_id": resume["id"], "k": 2})
-    recs = all_recs[:2]
+        all_recs = call("POST", "/recommendations", json={"resume_id": resume["id"], "k": 3})
+    recs = all_recs[:3]
 
 saved_jobs, _ = soft("GET", "/saved-jobs")
 all_interviews, _ = soft("GET", "/interviews")
@@ -98,16 +100,26 @@ with col_perf:
             if len(completed_sessions) >= 2:
                 oldest_first = list(reversed(completed_sessions))
                 trend = go.Figure(data=[go.Scatter(
-                    x=[format_date(s["created_at"]) for s in oldest_first],
+                    x=list(range(1, len(oldest_first) + 1)),
                     y=[s["overall_score"] for s in oldest_first],
                     mode="lines+markers", line=dict(color="#0B3FB8"), marker=dict(color="#0B3FB8"),
                 )])
                 trend.update_layout(
                     height=160, margin=dict(l=0, r=0, t=10, b=0),
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    yaxis=dict(range=[0, 100], title=None), xaxis=dict(title=None),
+                    yaxis=dict(range=[0, 100], title=None, showticklabels=False),
+                    xaxis=dict(title=None, dtick=1),
                 )
                 st.plotly_chart(trend, use_container_width=True, config={"displayModeBar": False})
+            st.markdown('<div style="height:0.3rem;"></div>', unsafe_allow_html=True)
+            for s in completed_sessions[:3]:
+                st.markdown(
+                    f'<div style="display:flex; justify-content:space-between; '
+                    f'font-size:0.85rem; padding:2px 0;">'
+                    f'<span style="color:#64748B;">{html.escape(s["job_title"] or "")}</span>'
+                    f'<span style="font-weight:600;">{s["overall_score"]}/100</span></div>',
+                    unsafe_allow_html=True,
+                )
         else:
             st.caption("Complete a mock interview to see your score.")
         if st.button("View interview history", key="dash_history"):

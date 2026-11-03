@@ -2,8 +2,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from frontend.common import (
-    call, format_date, nav, overall_label, page_header, require_login, start_interview, tier_hex,
-    type_tag,
+    call, format_date, nav, overall_label, page_header, require_login, score_tier, start_interview,
+    tier_hex, type_tag,
 )
 
 require_login()
@@ -27,34 +27,86 @@ def _truncate(text: str, limit: int = 80) -> str:
     return cut.rstrip() + "…"
 
 
+def _resume_interview() -> None:
+    """Rebuild the session state interview.py expects from this report, so an unfinished
+    interview can be continued instead of started over."""
+    st.session_state["interview"] = {
+        "id": report["id"], "job_id": report["job_id"], "job_title": report["job_title"],
+        "company": report["company"], "personalised": report.get("personalised"),
+        "questions": report["questions"],
+    }
+    st.session_state["interview_answers"] = {
+        q["id"]: {"answer": q["answer"]["text"], "score": q["answer"]["score"],
+                  "strengths": q["answer"]["strengths"], "improvements": q["answer"]["improvements"]}
+        for q in report["questions"] if q["answer"]
+    }
+    first_unanswered = next(
+        (i for i, q in enumerate(report["questions"]) if not q["answer"]), len(report["questions"]),
+    )
+    st.session_state["q_index"] = first_unanswered
+    nav("interview")
+
+
 title = report["job_title"] or "Mock interview"
 if report.get("company"):
     title += f" — {report['company']}"
 
-left, right = st.columns([3, 1], gap="large")
-with left:
-    page_header(title, format_date(report["created_at"]))
-    pills_html = '<span class="g2k-pill g2k-neutral">AI Practice Session</span>'
-    if report.get("personalised"):
-        pills_html += ' <span class="g2k-pill g2k-neutral">Personalised</span>'
-    st.markdown(pills_html, unsafe_allow_html=True)
-with right:
-    with st.container(border=True):
-        if report["overall_score"] is None:
-            st.write("No answers have been recorded for this interview yet.")
-        else:
-            st.markdown(
-                f'<div class="g2k-score">{report["overall_score"]}<span> / 100</span></div>',
-                unsafe_allow_html=True,
-            )
-            st.caption("Scores and feedback are AI-generated guidance to help you improve, "
-                       "not a prediction of your interview outcome.")
-            answered_count = sum(1 for q in report["questions"] if q["answer"])
-            st.caption(f"Average score across {answered_count} answered question(s)")
-            st.write(overall_label(report["overall_score"]))
+page_header(title, format_date(report["created_at"]))
+pills_html = '<span class="g2k-pill g2k-neutral">AI Practice Session</span>'
+if report.get("personalised"):
+    pills_html += ' <span class="g2k-pill g2k-neutral">Personalised</span>'
+st.markdown(pills_html, unsafe_allow_html=True)
 
 answered_qs = [q for q in report["questions"] if q["answer"]]
-if answered_qs:
+
+if report["overall_score"] is None:
+    st.markdown(
+        '<div class="g2k-empty-state"><span class="material-symbols-outlined">quiz</span>'
+        "<div>No answers recorded yet</div></div>",
+        unsafe_allow_html=True,
+    )
+    _, mid, _ = st.columns([2, 1, 2])
+    with mid:
+        if st.button("Continue interview", type="primary", key="fr_continue"):
+            _resume_interview()
+else:
+    tier = score_tier(report["overall_score"])
+    with st.container(border=True):
+        s1, s2, s3, s4 = st.columns(4, gap="medium")
+        with s1:
+            st.markdown(
+                f'<div class="g2k-score g2k-text-{tier}">{report["overall_score"]}'
+                '<span> / 100</span></div>',
+                unsafe_allow_html=True,
+            )
+        with s2:
+            st.write(overall_label(report["overall_score"]))
+        with s3:
+            st.write(f"{len(answered_qs)} of {len(report['questions'])} questions answered")
+        with s4:
+            st.caption("Scores and feedback are AI-generated guidance to help you improve, "
+                       "not a prediction of your interview outcome.")
+
+    by_type: dict[str, list[float]] = {}
+    for q in answered_qs:
+        if q.get("type"):
+            by_type.setdefault(q["type"].lower(), []).append(q["answer"]["score"])
+    if by_type:
+        st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
+        st.caption("Average by question type")
+        type_cols = st.columns(len(by_type), gap="medium")
+        for col, (qtype, scores) in zip(type_cols, by_type.items()):
+            avg = sum(scores) / len(scores)
+            avg_tier = score_tier(avg * 10)
+            with col:
+                with st.container(border=True):
+                    st.markdown(type_tag(qtype), unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="g2k-score g2k-text-{avg_tier}" style="font-size:1.8rem;">'
+                        f'{avg:.1f}<span> / 10</span></div>',
+                        unsafe_allow_html=True,
+                    )
+
     with st.container(border=True):
         st.subheader("Score by Question")
         bars = go.Figure(data=[go.Bar(

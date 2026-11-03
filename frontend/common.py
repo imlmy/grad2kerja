@@ -44,8 +44,14 @@ STYLE = """
     vertical-align: middle;
 }
 .block-container {
-    max-width: 1200px;
-    padding-top: 2rem;
+    max-width: 1440px;
+    padding-top: 4.5rem;
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+}
+.st-key-iv_back, .st-key-ih_back, .st-key-sm_back, .st-key-sm_back_empty,
+.st-key-jd_back, .st-key-jd_back_empty, .st-key-rs_back {
+    margin-bottom: 0.75rem;
 }
 .g2k-pill {
     display:inline-block; 

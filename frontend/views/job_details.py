@@ -5,7 +5,7 @@ import streamlit as st
 
 from frontend.common import (
     call, company_avatar, format_date, get_latest_resume, match_badge, nav, pills,
-    require_login, soft, start_interview,
+    require_login, soft, start_interview, upload_prompt,
 )
 
 require_login()
@@ -114,6 +114,15 @@ def _truncate_at_word(text: str, limit: int) -> str:
     return cut.rstrip() + "…"
 
 
+def _fetch_readiness(jid: int) -> tuple[dict | None, dict | None]:
+    """The skill-gap row and latest scored interview for this job -- shared by the Apply dialog
+    and the Job Details "Your readiness" card so both read the exact same state."""
+    gap, _ = soft("GET", f"/skill-gap/{jid}")
+    interviews, _ = soft("GET", "/interviews")
+    scored = next((s for s in (interviews or []) if s["job_id"] == jid and s["overall_score"] is not None), None)
+    return gap, scored
+
+
 @st.dialog("Are you ready to apply?")
 def _apply_dialog(jid: int, job_match: dict | None, resume: dict | None) -> None:
     """A readiness check followed by a clearly-labelled demo confirmation. Nothing here is
@@ -139,7 +148,7 @@ def _apply_dialog(jid: int, job_match: dict | None, resume: dict | None) -> None
 
     st.write(f"**Overall match:** {job_match['match_pct']}% match")
 
-    gap, _ = soft("GET", f"/skill-gap/{jid}")
+    gap, scored = _fetch_readiness(jid)
     needs_practice = False
     if gap is not None:
         total = len(gap["matched"]) + len(gap["missing"])
@@ -150,10 +159,8 @@ def _apply_dialog(jid: int, job_match: dict | None, resume: dict | None) -> None
         if total and len(gap["matched"]) / total * 100 < 60:
             needs_practice = True
 
-    interviews, _ = soft("GET", "/interviews")
-    scored = [s for s in (interviews or []) if s["job_id"] == jid and s["overall_score"] is not None]
     if scored:
-        st.write(f"**Interview practice:** {scored[0]['overall_score']}/100")
+        st.write(f"**Interview practice:** {scored['overall_score']}/100")
     else:
         st.write("**Interview practice:** Not practised yet")
         needs_practice = True
@@ -290,3 +297,26 @@ with right:
             else:
                 call("POST", "/saved-jobs", json={"job_id": jid})
             st.rerun()
+
+    st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.subheader("Your readiness")
+        if resume is None:
+            upload_prompt("Upload your resume to see your readiness for this role.")
+        else:
+            if job_match is not None:
+                st.markdown(match_badge(job_match["match_pct"], "ai"), unsafe_allow_html=True)
+            gap, scored = _fetch_readiness(jid)
+            if gap is not None and gap["match_pct"] is not None:
+                total = len(gap["matched"]) + len(gap["missing"])
+                st.write(f"Skill Match: {len(gap['matched'])} of {total} skills")
+                st.progress(len(gap["matched"]) / total if total else 0)
+            elif gap is not None:
+                st.caption(gap.get("message") or "No specific skills listed for this job.")
+            st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
+            if scored:
+                st.write(f"Interview practice: {scored['overall_score']}/100")
+            else:
+                st.write("Interview practice: Not practised yet")
+                if st.button("Practise Interview", key="jd_readiness_practice", icon=":material/mic:"):
+                    start_interview(jid)

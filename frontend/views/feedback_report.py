@@ -4,8 +4,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from frontend.common import (
-    call, format_date, nav, overall_label, page_header, require_login, score_tier, start_interview,
-    tier_hex, type_tag,
+    call, format_date, nav, overall_label, require_login, score_tier, start_interview, tier_hex,
+    type_tag,
 )
 
 require_login()
@@ -29,6 +29,10 @@ def _truncate(text: str, limit: int = 80) -> str:
     return cut.rstrip() + "…"
 
 
+def _spacer() -> None:
+    st.markdown('<div style="height:1.5rem;"></div>', unsafe_allow_html=True)
+
+
 def _resume_interview() -> None:
     """Rebuild the session state interview.py expects from this report, so an unfinished
     interview can be continued instead of started over."""
@@ -50,15 +54,28 @@ def _resume_interview() -> None:
     nav("interview")
 
 
-title = report["job_title"] or "Mock interview"
+job_title = report["job_title"] or "Mock interview"
+st.markdown(
+    f'<div style="font-size:2rem; font-weight:700; line-height:1.25;">{html.escape(job_title)}</div>',
+    unsafe_allow_html=True,
+)
 if report.get("company"):
-    title += f" — {report['company']}"
+    st.markdown(f'<div style="color:#64748B;">{html.escape(report["company"])}</div>', unsafe_allow_html=True)
 
-page_header(title, format_date(report["created_at"]))
-pills_html = '<span class="g2k-pill g2k-neutral">AI Practice Session</span>'
+_header_row = []
+date_str = format_date(report["created_at"])
+if date_str:
+    _header_row.append(f'<span style="color:#64748B; font-size:0.85rem;">{html.escape(date_str)}</span>')
+_header_row.append('<span class="g2k-pill g2k-neutral">AI Practice Session</span>')
 if report.get("personalised"):
-    pills_html += ' <span class="g2k-pill g2k-neutral">Personalised</span>'
-st.markdown(pills_html, unsafe_allow_html=True)
+    _header_row.append('<span class="g2k-pill g2k-neutral">Personalised</span>')
+st.markdown(
+    '<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; margin-top:0.4rem;">'
+    + " ".join(_header_row) + '</div>',
+    unsafe_allow_html=True,
+)
+
+_spacer()
 
 answered_qs = [q for q in report["questions"] if q["answer"]]
 
@@ -80,76 +97,62 @@ else:
             by_type.setdefault(q["type"].lower(), []).append(q["answer"]["score"])
     type_avgs = {t: sum(scores) / len(scores) for t, scores in by_type.items()}
 
-    with st.container(border=True):
-        left, right = st.columns([2, 3], gap="large", vertical_alignment="center")
-        with left:
-            st.caption("OVERALL SCORE")
-            st.markdown(
-                f'<div class="g2k-score g2k-text-{tier}">{report["overall_score"]}'
-                '<span> / 100</span></div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f'<span class="g2k-pill g2k-tier-{tier}">'
-                f'{html.escape(overall_label(report["overall_score"]))}</span>',
-                unsafe_allow_html=True,
-            )
-            st.progress(report["overall_score"] / 100)
-        with right:
-            if len(type_avgs) >= 2:
-                r1, r2, r3 = st.columns(3, gap="medium")
-            else:
-                (r1,) = st.columns(1)
-            with r1:
-                st.caption("QUESTIONS ANSWERED")
-                st.markdown(f"**{len(answered_qs)} of {len(report['questions'])}**")
-            if len(type_avgs) >= 2:
-                best_type = max(type_avgs, key=type_avgs.get)
-                worst_type = min(type_avgs, key=type_avgs.get)
-                with r2:
-                    st.caption("STRONGEST AREA")
-                    st.markdown(f"**{best_type.capitalize()} · {type_avgs[best_type]:.1f}/10**")
-                with r3:
-                    st.caption("NEEDS MOST WORK")
-                    st.markdown(f"**{worst_type.capitalize()} · {type_avgs[worst_type]:.1f}/10**")
-    st.caption("ℹ️ Scores and feedback are AI-generated guidance to help you improve, not a "
-               "prediction of your interview outcome.")
+    right_fields = [("QUESTIONS ANSWERED", f"{len(answered_qs)} of {len(report['questions'])}")]
+    if len(type_avgs) >= 2:
+        best_type = max(type_avgs, key=type_avgs.get)
+        worst_type = min(type_avgs, key=type_avgs.get)
+        right_fields.append(("STRONGEST AREA", f"{best_type.capitalize()} · {type_avgs[best_type]:.1f}/10"))
+        right_fields.append(("NEEDS MOST WORK", f"{worst_type.capitalize()} · {type_avgs[worst_type]:.1f}/10"))
 
-    if type_avgs:
-        st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
-        st.caption("Average by question type")
-        type_cols = st.columns(len(type_avgs), gap="medium")
-        for col, (qtype, avg) in zip(type_cols, type_avgs.items()):
-            avg_tier = score_tier(avg * 10)
-            with col:
-                with st.container(border=True, height="stretch"):
-                    st.markdown(type_tag(qtype), unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="g2k-score g2k-text-{avg_tier}" style="font-size:1.8rem;">'
-                        f'{avg:.1f}<span> / 10</span></div>',
-                        unsafe_allow_html=True,
-                    )
-                    n = len(by_type[qtype])
-                    st.caption(f"{n} question{'s' if n != 1 else ''}")
+    right_cells = "".join(
+        f'<div style="flex:1; padding:0 1.25rem;{" border-left:1px solid #E5E7EB;" if i else ""}">'
+        f'<div class="g2k-caption">{html.escape(label)}</div>'
+        f'<div style="font-weight:700; margin-top:0.25rem;">{html.escape(value)}</div></div>'
+        for i, (label, value) in enumerate(right_fields)
+    )
 
     with st.container(border=True):
-        st.subheader("Score by Question")
-        x_labels = [
-            f"Q{q['position']} · {q['type'].capitalize()}" if q.get("type") else f"Q{q['position']}"
-            for q in answered_qs
-        ]
-        scores = [q["answer"]["score"] for q in answered_qs]
-        bars = go.Figure(data=[go.Bar(
-            x=x_labels, y=scores,
-            text=[str(s) for s in scores], textposition="outside",
-            marker=dict(color=[tier_hex(s * 10) for s in scores]),
-        )])
-        bars.update_layout(
-            height=260, margin=dict(l=0, r=0, t=20, b=0),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            yaxis=dict(range=[0, 10], title=None, dtick=2), xaxis=dict(title=None),
+        st.markdown(
+            '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:1.5rem;">'
+            '<div style="flex:0 0 40%; min-width:180px;">'
+            '<div class="g2k-caption">OVERALL SCORE</div>'
+            f'<div class="g2k-score g2k-text-{tier}">{report["overall_score"]}<span> / 100</span></div>'
+            f'<span class="g2k-pill g2k-tier-{tier}">{html.escape(overall_label(report["overall_score"]))}</span>'
+            '</div>'
+            f'<div style="flex:1; display:flex; min-width:220px;">{right_cells}</div>'
+            '</div>',
+            unsafe_allow_html=True,
         )
-        st.plotly_chart(bars, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            '<div style="border-top:1px solid #E5E7EB; margin-top:1rem; padding-top:0.6rem; '
+            'font-size:0.8rem; color:#64748B;">ℹ️ Scores and feedback are AI-generated guidance '
+            'to help you improve, not a prediction of your interview outcome.</div>',
+            unsafe_allow_html=True,
+        )
+
+    _spacer()
+
+    st.subheader("Score by question")
+    x_labels = [
+        f"Q{q['position']} · {q['type'].capitalize()}" if q.get("type") else f"Q{q['position']}"
+        for q in answered_qs
+    ]
+    scores = [q["answer"]["score"] for q in answered_qs]
+    bars = go.Figure(data=[go.Bar(
+        x=x_labels, y=scores,
+        text=[str(s) for s in scores], textposition="outside",
+        marker=dict(color=[tier_hex(s * 10) for s in scores]),
+    )])
+    bars.update_layout(
+        height=240, margin=dict(l=0, r=0, t=20, b=0), bargap=0.55,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(range=[0, 10], title=None, dtick=2, gridcolor="#F1F5F9", showline=False,
+                   zeroline=False, tickfont=dict(size=12, color="#64748B")),
+        xaxis=dict(title=None, showline=False, tickfont=dict(size=12, color="#64748B")),
+    )
+    st.plotly_chart(bars, use_container_width=True, config={"displayModeBar": False})
+
+    _spacer()
 
 st.subheader("Question review")
 for q in report["questions"]:
@@ -171,6 +174,8 @@ for q in report["questions"]:
                     st.caption("AI-suggested rewrite of your answer. Fill in the [bracketed] parts "
                                "with your own real experience.")
                     st.write(answer["improved_answer"])
+
+_spacer()
 
 c1, c2 = st.columns(2)
 if c1.button("Practise again", type="primary", key="fr_again"):

@@ -15,7 +15,7 @@ import spacy
 from rapidfuzz import fuzz, process
 
 from modules.skill_dictionary import (
-    SKILLS, ALIASES, LANGUAGES, LANGUAGE_ALIASES, build_matcher, extract_terms,
+    SKILLS, ALIASES, CASE_SENSITIVE, LANGUAGES, LANGUAGE_ALIASES, build_matcher, extract_terms,
 )
 
 _FUZZY_CUTOFF = 88
@@ -28,7 +28,7 @@ _COLLAPSE_WS = re.compile(r"\s+")
 
 # ner/lemmatizer disabled: unused here, noun_chunks only needs tagger + parser + attribute_ruler
 _nlp = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
-_skill_matcher = build_matcher(_nlp, SKILLS, ALIASES)
+_skill_matcher = build_matcher(_nlp, SKILLS, ALIASES, CASE_SENSITIVE)
 _language_matcher = build_matcher(_nlp, LANGUAGES, LANGUAGE_ALIASES)
 
 _SKILL_VOCAB = {**{s: s for s in SKILLS}, **ALIASES}
@@ -79,6 +79,19 @@ _HEADING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_MONTH_YEAR = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}"
+_DATE_RANGE_AT_END = re.compile(
+    rf"{_MONTH_YEAR}\s*(?:-|–|—|to)\s*(?:{_MONTH_YEAR}|Present|Current)\s*$", re.IGNORECASE,
+)
+
+
+def _starts_new_entry(line: str) -> bool:
+    """True if `line` ends with a date range (e.g. "Jun 2026 - Dec 2026", "Jan 2024 - Present"),
+    optionally after a " | " title/role separator, e.g. "Role | Company Jun 2026 - Dec 2026".
+    PDF text extraction often drops the blank line between resume entries, so without this
+    heuristic two entries written back-to-back would be merged into one."""
+    return bool(_DATE_RANGE_AT_END.search(line.strip()))
+
 
 def _extract_text(pdf_bytes_or_path: str | Path | bytes) -> str:
     """Extract text from every page of a PDF, given a path or raw bytes.
@@ -100,12 +113,16 @@ def _extract_text(pdf_bytes_or_path: str | Path | bytes) -> str:
 
 
 def _extract_sections(text: str) -> dict[str, list[str]]:
-    """Split text by common section headings (a recognised heading alone on its own line).
+    """Split text by common section headings (a recognised heading alone on its own line) into
+    per-entry blocks. Within a heading's content, a new entry starts at a blank line, or --
+    since PDF text extraction often drops blank lines between entries -- at a line that itself
+    ends with a date range (see _starts_new_entry).
 
-    Returns {"education": [...], "experience": [...], "projects": [...]}, each a list of text
-    blocks -- a category can have more than one heading (e.g. "Experience" and "Internships").
-    A heading not in one of these three categories (e.g. "Skills") still ends the section before
-    it, but its own content isn't collected. A missing category returns an empty list.
+    Returns {"education": [...], "experience": [...], "projects": [...]}, each a list of entry
+    blocks -- a category can have more than one heading (e.g. "Experience" and "Internships"),
+    and each heading's content can itself hold more than one entry. A heading not in one of
+    these three categories (e.g. "Skills") still ends the current entry/section, but its own
+    content isn't collected. A missing category returns an empty list.
     """
     sections: dict[str, list[str]] = {"education": [], "experience": [], "projects": []}
     current: str | None = None
@@ -123,8 +140,15 @@ def _extract_sections(text: str) -> dict[str, list[str]]:
             flush()
             current = _SECTION_HEADINGS[m.group(1).lower()]
             buffer = []
-        else:
-            buffer.append(line)
+            continue
+        if not line.strip():
+            flush()
+            buffer = []
+            continue
+        if buffer and _starts_new_entry(line):
+            flush()
+            buffer = []
+        buffer.append(line)
     flush()
     return sections
 

@@ -101,6 +101,7 @@ def init_db() -> None:
         _migrate_interview_questions_table(conn)
         _migrate_interview_sessions_table(conn)
         _migrate_interview_answers_table(conn)
+        _migrate_skill_matches_table(conn)
 
 
 def _migrate_users_table(conn: sqlite3.Connection) -> None:
@@ -144,3 +145,10 @@ def _migrate_interview_answers_table(conn: sqlite3.Connection) -> None:
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(interview_answers)")}
     if "improved_answer" not in existing:
         conn.execute("ALTER TABLE interview_answers ADD COLUMN improved_answer TEXT")
+
+
+def _migrate_skill_matches_table(conn: sqlite3.Connection) -> None:
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(skill_matches)")}
+    for column in ("soft_skills_required", "soft_skills_listed", "matched_by_type", "missing_by_type"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE skill_matches ADD COLUMN {column} TEXT")

@@ -417,11 +417,12 @@ def company_avatar(name: str) -> str:
     return f'<div class="g2k-avatar" style="background:{color};">{html.escape(letter)}</div>'
 
 
-def stat_tile(label: str, value: str, icon: str) -> None:
+def stat_tile(label: str, value: str, icon: str, help: str | None = None) -> None:
     """A small card: a large value, a small uppercase label, and a Material icon -- used for the
-    dashboard's summary row."""
+    dashboard's summary row. `help`, if given, shows as a native tooltip on hover."""
+    title_attr = f' title="{html.escape(help)}"' if help else ""
     st.markdown(
-        f'<div class="g2k-stat-tile">'
+        f'<div class="g2k-stat-tile"{title_attr}>'
         f'<span class="material-symbols-outlined">{html.escape(icon)}</span>'
         f'<div class="g2k-stat-value">{html.escape(str(value))}</div>'
         f'<div class="g2k-stat-label">{html.escape(label.upper())}</div>'

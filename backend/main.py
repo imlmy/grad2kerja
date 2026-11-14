@@ -22,7 +22,7 @@ from backend.schemas import (  # noqa: E402
 )
 from modules.auth import generate_token, hash_password, verify_password  # noqa: E402
 from modules.interview import evaluate_answer, generate_questions, transcribe  # noqa: E402
-from modules.matching import match_job, preload_model, recommend_jobs  # noqa: E402
+from modules.matching import count_above, match_job, preload_model, recommend_jobs  # noqa: E402
 from modules.resume_parser import parse_resume  # noqa: E402
 from modules.skillgap import check_skill_match, explain_gaps  # noqa: E402
 
@@ -434,6 +434,16 @@ def recommend(req: RecommendRequest, user_id: int = Depends(current_user_id)) ->
     return results
 
 
+@app.get("/recommendations/strong-count")
+def strong_match_count(resume_id: int, user_id: int = Depends(current_user_id)) -> dict:
+    """Count of jobs across the WHOLE dataset (unfiltered) with an AI Match of 60% or higher for
+    this resume -- for the dashboard's "Strong matches" stat, which is not the same as the number
+    of stored recommendations (that list is capped and may be narrowed by Find a Job filters)."""
+    with db() as conn:
+        resume = _resume_or_404(conn, resume_id, user_id)
+    return {"count": count_above(resume, threshold=0.60), "threshold": 60}
+
+
 @app.get("/recommendations/latest")
 def latest_recommendations(user_id: int = Depends(current_user_id)) -> list[dict]:
     """The most recent batch POST /recommendations computed for this user (UC011)."""
@@ -463,16 +473,20 @@ def skill_gap(req: SkillGapRequest, user_id: int = Depends(current_user_id)) -> 
     # UC011 step 4: keep this as the user's latest skill match for the dashboard.
     with db() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO skill_matches (user_id, job_id, match_pct, matched, missing) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO skill_matches (user_id, job_id, match_pct, matched, missing, "
+            "soft_skills_required, soft_skills_listed, matched_by_type, missing_by_type) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (user_id, req.job_id, result["match_pct"], json.dumps(result["matched"]),
-             json.dumps(result["missing"])),
+             json.dumps(result["missing"]), json.dumps(result["soft_skills_required"]),
+             json.dumps(result["soft_skills_listed"]), json.dumps(result["matched_by_type"]),
+             json.dumps(result["missing_by_type"])),
         )
 
     result["explanation"] = None
     if req.explain and result["missing"]:
         try:
-            result["explanation"] = explain_gaps(result["matched"], result["missing"], job["job_title"])
+            result["explanation"] = explain_gaps(result["matched"], result["missing"], job["job_title"],
+                                                  soft_skills=result["soft_skills_required"])
         except RuntimeError as e:
             # UC008 alt flow 8.1: the skill match itself is still good, just note the explanation
             # couldn't be generated, instead of losing the whole result.
@@ -480,18 +494,26 @@ def skill_gap(req: SkillGapRequest, user_id: int = Depends(current_user_id)) -> 
     return result
 
 
+def _json_or(value: str | None, default):
+    """json.loads a stored column, or return `default` if it's None (rows written before a
+    column was added via an ALTER TABLE migration)."""
+    return default if value is None else json.loads(value)
+
+
 @app.get("/skill-gap/latest")
 def latest_skill_match(user_id: int = Depends(current_user_id)) -> dict | None:
     """The most recently computed skill match for this user, across any job (UC011 step 4)."""
     with db() as conn:
         row = conn.execute(
-            "SELECT job_id, match_pct, matched, missing, created_at FROM skill_matches "
+            "SELECT job_id, match_pct, matched, missing, soft_skills_required, soft_skills_listed, "
+            "matched_by_type, missing_by_type, created_at FROM skill_matches "
             "WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             (user_id,),
         ).fetchone()
     if row is None:
         return None
     job = _find_job(row["job_id"])
+    empty_by_type = {"software": [], "technical": []}
     return {
         "job_id": row["job_id"],
         "title": job["job_title"] if job is not None else None,
@@ -499,6 +521,10 @@ def latest_skill_match(user_id: int = Depends(current_user_id)) -> dict | None:
         "match_pct": row["match_pct"],
         "matched": json.loads(row["matched"]),
         "missing": json.loads(row["missing"]),
+        "soft_skills_required": _json_or(row["soft_skills_required"], []),
+        "soft_skills_listed": _json_or(row["soft_skills_listed"], []),
+        "matched_by_type": _json_or(row["matched_by_type"], empty_by_type),
+        "missing_by_type": _json_or(row["missing_by_type"], empty_by_type),
         "created_at": row["created_at"],
     }
 

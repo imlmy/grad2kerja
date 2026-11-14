@@ -69,16 +69,23 @@ def match_job(resume: dict, job_id: int) -> dict | None:
     return {"match_pct": match_pct, "matched_skills": sorted(resume_skills & _job_skill_sets[row])}
 
 
+def _score_candidates(resume: dict, filters: dict | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """Cosine similarity of a resume against every job matching `filters` (all jobs if None).
+    Returns (candidate row indices into _jobs/_embeddings, their scores) -- shared by
+    recommend_jobs() and count_above() so they embed the resume and score jobs the same way."""
+    candidates = np.flatnonzero(_filter_mask(filters or {}))
+    query = _embed_resume(resume)
+    scores = _embeddings[candidates] @ query
+    return candidates, scores
+
+
 def recommend_jobs(resume: dict, k: int = 20, filters: dict | None = None) -> pd.DataFrame:
     """Return the top-k jobs for a resume (output of parse_resume), best first.
 
     filters: optional dict with any of 'category' (exact), 'location' (substring) and 'type'
     (exact), case-insensitive. Filtering happens before ranking, so top-k is within the filtered set.
     """
-    candidates = np.flatnonzero(_filter_mask(filters or {}))
-    query = _embed_resume(resume)
-
-    scores = _embeddings[candidates] @ query
+    candidates, scores = _score_candidates(resume, filters)
     top = np.argsort(-scores)[:k]
     rows = candidates[top]
 
@@ -93,3 +100,11 @@ def recommend_jobs(resume: dict, k: int = 20, filters: dict | None = None) -> pd
         "match_pct": np.round(scores[top] * 100).astype(int),
         "matched_skills": [sorted(resume_skills & _job_skill_sets[r]) for r in rows],
     })
+
+
+def count_above(resume: dict, threshold: float = 0.60) -> int:
+    """Number of jobs in the whole dataset (unfiltered) with a cosine similarity to `resume` at
+    or above `threshold` (0..1) -- used for the dashboard's "Strong matches" stat, which counts
+    across every job regardless of any Find a Job filters."""
+    _, scores = _score_candidates(resume, filters=None)
+    return int(np.count_nonzero(scores >= threshold))

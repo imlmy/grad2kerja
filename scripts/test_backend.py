@@ -177,6 +177,14 @@ try:
             "a job with no skills should still return a match_pct, with empty matched_skills"
         call(client, "GET", "/jobs/999999999/match", 404, "job match for a missing job")
 
+        strong_count = call(client, "GET", "/recommendations/strong-count", label="strong match count",
+                            params={"resume_id": rid})
+        assert strong_count["threshold"] == 60
+        assert strong_count["count"] >= 0
+        print(f"   strong matches (>=60% AI Match) across the whole dataset: {strong_count['count']}")
+        call(client, "GET", "/recommendations/strong-count", 404, "strong match count for a missing resume id",
+             params={"resume_id": 999999})
+
         latest = call(client, "GET", "/recommendations/latest", label="get stored recommendations")
         assert {r["job_id"] for r in latest} == {r["job_id"] for r in recs}, \
             "stored recommendations don't match the last computed batch"

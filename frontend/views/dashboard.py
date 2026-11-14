@@ -30,11 +30,14 @@ avg_interview_score = (
     if completed_sessions else None
 )
 
-strong_matches = sum(1 for r in all_recs if r["match_pct"] >= 60)
+strong_count = None
+if resume is not None:
+    strong_count, _ = soft("GET", "/recommendations/strong-count", params={"resume_id": resume["id"]})
 
 t1, t2, t3, t4 = st.columns(4, gap="medium")
 with t1:
-    stat_tile("Strong matches (60%+)", str(strong_matches), "work")
+    stat_tile("Strong matches (60%+)", str(strong_count["count"]) if strong_count else "–", "work",
+               help="Jobs across the whole dataset with an AI Match of 60% or higher.")
 with t2:
     stat_tile("Saved Jobs", str(len(saved_jobs or [])), "bookmark")
 with t3:

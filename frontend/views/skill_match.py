@@ -3,14 +3,14 @@ import html
 import streamlit as st
 
 from frontend.common import (
-    call, donut, get_latest_resume, nav, page_header, pills, require_login, start_interview,
+    call, donut, get_latest_resume, nav, page_header, require_login, start_interview,
     upload_prompt,
 )
 
 
 def _checklist(items: list[str], matched: bool) -> None:
     if not items:
-        st.caption("None")
+        st.caption("None yet")
         return
     mark, color = ("✓", "#166534") if matched else ("✗", "#92400E")
     rows = "".join(
@@ -29,7 +29,7 @@ def _grouped_checklist(by_type: dict | None, matched: bool) -> None:
     software = by_type.get("software") or []
     technical = by_type.get("technical") or []
     if not software and not technical:
-        st.caption("None")
+        st.caption("None yet")
         return
     if software:
         st.caption("Software & tools")
@@ -37,6 +37,23 @@ def _grouped_checklist(by_type: dict | None, matched: bool) -> None:
     if technical:
         st.caption("Technical skills")
         _checklist(technical, matched)
+
+
+def _language_pills(matched: list[str], missing: list[str]) -> str:
+    """Matched languages as a green pill with a check mark, missing ones as a plain amber
+    pill -- languages are informational only, never scored like skills."""
+    parts = [
+        '<span class="g2k-pill g2k-match"><span style="font-weight:700;">✓ </span>'
+        f'{html.escape(lang.title())}</span>'
+        for lang in matched
+    ]
+    parts += [f'<span class="g2k-pill g2k-missing">{html.escape(lang.title())}</span>' for lang in missing]
+    return " ".join(parts)
+
+
+def _spacer() -> None:
+    st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
+
 
 require_login()
 jid = st.session_state.get("selected_job_id")
@@ -59,75 +76,81 @@ with st.spinner("Checking your skill match..."):
 if st.button("Back to job", key="sm_back", icon=":material/arrow_back:"):
     nav("job_details")
 
-page_header("Skill Match Analysis", job["title"])
+page_header("Skill Match Analysis", f"{job['title']} at {job['company']}")
 
+# Summary: donut + match count, compact.
 with st.container(border=True):
-    st.subheader("Skill Match", help="Based on software and technical skills. Soft skills are "
-                 "shown separately because resumes often show them through experience rather "
-                 "than listing them.")
     if gap["match_pct"] is None:
         st.info(gap["message"])
+        # UC008 alt flow 3.1: no skills on the resume -- point the user at fixing that, not
+        # just the skill/missing lists below, which would all be empty/unhelpful here.
+        if not resume["skills"] and st.button("Go to Resume Upload", type="primary", key="sm_upload",
+                                               icon=":material/upload_file:"):
+            nav("resume")
     else:
         d_col, s_col = st.columns([1, 2], gap="medium", vertical_alignment="center")
         with d_col:
-            st.plotly_chart(donut(gap["match_pct"], "Skill Match"), use_container_width=True,
+            st.plotly_chart(donut(gap["match_pct"], "Skill Match", height=160), use_container_width=True,
                             config={"displayModeBar": False})
         with s_col:
             total = len(gap["matched"]) + len(gap["missing"])
             if total:
-                st.write(f"**{len(gap['matched'])} of {total} required skills matched**")
-            if gap["message"]:
-                st.info(gap["message"])
-                # UC008 alt flow 3.1: no skills on the resume -- point the user at fixing that, not
-                # just the skill/missing lists below, which would all be empty/unhelpful here.
-                if not resume["skills"] and st.button("Go to Resume Upload", type="primary", key="sm_upload",
-                                                       icon=":material/upload_file:"):
-                    nav("resume")
+                st.markdown(f"**{len(gap['matched'])} of {total} required skills matched**")
+            st.caption("Based on software and technical skills. Soft skills are shown separately "
+                       "because resumes often show them through experience rather than listing them.")
 
-c1, c2 = st.columns(2, gap="medium")
-with c1:
-    with st.container(border=True):
-        st.subheader("Matched skills")
+_spacer()
+
+with st.container(border=True):
+    st.subheader("Skills")
+    sk1, sk2 = st.columns(2, gap="medium")
+    with sk1:
+        st.markdown('<span style="color:#166534; font-weight:600;">✓ Matched</span>', unsafe_allow_html=True)
         _grouped_checklist(gap.get("matched_by_type"), matched=True)
-with c2:
-    with st.container(border=True):
-        st.subheader("Missing skills")
+    with sk2:
+        st.markdown('<span style="color:#92400E; font-weight:600;">✗ Missing</span>', unsafe_allow_html=True)
         _grouped_checklist(gap.get("missing_by_type"), matched=False)
 
-if gap.get("soft_skills_required"):
-    with st.container(border=True):
-        st.subheader("Soft skills this role values")
-        listed = set(gap.get("soft_skills_listed") or [])
-        pills_html = " ".join(
-            '<span class="g2k-pill g2k-neutral">'
-            + ('<span style="color:#166534; font-weight:700;">✓ </span>' if s in listed else "")
-            + f'{html.escape(s.title())}</span>'
-            for s in gap["soft_skills_required"]
-        )
-        st.markdown(pills_html, unsafe_allow_html=True)
-        st.caption("Soft skills are usually shown through your experience rather than listed. "
-                   "Practise them in a mock interview.")
-        if st.button("Practise interview", key="sm_soft_interview", icon=":material/mic:"):
-            start_interview(jid)
+_spacer()
 
-if gap["matched_languages"] or gap["missing_languages"]:
-    l1, l2 = st.columns(2, gap="medium")
-    with l1:
-        with st.container(border=True):
-            st.subheader("Matched languages")
-            pills(gap["matched_languages"], "match")
-    with l2:
-        with st.container(border=True):
-            st.subheader("Missing languages")
-            pills(gap["missing_languages"], "missing")
+has_soft = bool(gap.get("soft_skills_required"))
+has_languages = bool(gap["matched_languages"] or gap["missing_languages"])
+if has_soft or has_languages:
+    soft_col, lang_col = st.columns(2, gap="medium")
+    with soft_col:
+        if has_soft:
+            with st.container(border=True, height="stretch"):
+                st.subheader("Soft skills this role values")
+                listed = set(gap.get("soft_skills_listed") or [])
+                pills_html = " ".join(
+                    '<span class="g2k-pill g2k-neutral">'
+                    + ('<span style="color:#166534; font-weight:700;">✓ </span>' if s in listed else "")
+                    + f'{html.escape(s.title())}</span>'
+                    for s in gap["soft_skills_required"]
+                )
+                st.markdown(pills_html, unsafe_allow_html=True)
+                st.caption("Soft skills are usually shown through your experience rather than listed. "
+                           "Practise them in a mock interview.")
+                if st.button("Practise interview", key="sm_soft_interview", icon=":material/mic:"):
+                    start_interview(jid)
+    with lang_col:
+        if has_languages:
+            with st.container(border=True, height="stretch"):
+                st.subheader("Languages")
+                st.markdown(_language_pills(gap["matched_languages"], gap["missing_languages"]),
+                            unsafe_allow_html=True)
+                st.caption("Languages are shown separately and don't affect the score.")
+    _spacer()
 
 if gap.get("explanation"):
     with st.container(border=True):
-        st.caption("AI explanation")
+        st.subheader("Why this matters")
         st.write(gap["explanation"])
+    _spacer()
 elif gap.get("explanation_note"):
     # UC008 alt flow 8.1: the skill match itself is still shown above; only the explanation failed.
     st.warning(gap["explanation_note"])
+    _spacer()
 
 if st.button("Practise interview for this role", type="primary", key="sm_interview"):
     start_interview(jid)

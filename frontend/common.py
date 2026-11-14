@@ -431,7 +431,7 @@ def stat_tile(label: str, value: str, icon: str, help: str | None = None) -> Non
     )
 
 
-def donut(pct: float | None, label: str) -> go.Figure:
+def donut(pct: float | None, label: str, height: int = 180) -> go.Figure:
     """A Plotly donut with the percentage in the centre, coloured by score_tier(). Render with
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})."""
     pct_display = max(0, min(100, round(pct or 0)))
@@ -447,7 +447,7 @@ def donut(pct: float | None, label: str) -> go.Figure:
     )])
     fig.update_layout(
         showlegend=False,
-        height=180,
+        height=height,
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",

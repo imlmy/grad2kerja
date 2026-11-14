@@ -632,3 +632,22 @@ def extract_terms(text, nlp, matcher):
         for match_id, start, end in matcher(doc)
     ]
     return {span.label_ for span in filter_spans(spans)}
+
+
+def normalise_terms(terms: list[str] | None, aliases: dict[str, str]) -> list[str]:
+    """Normalise a list of resume/job skill or language terms for matching and storage: strip,
+    lowercase, then map through `aliases` (ALIASES or LANGUAGE_ALIASES) to the canonical term.
+    An unrecognised term keeps its stripped/lowercased form rather than being dropped -- it may
+    still be a real skill the dictionary doesn't have yet. Order is preserved; duplicates that
+    collapse onto the same canonical term (e.g. "Excel" and "MS Excel") are removed."""
+    seen = set()
+    result = []
+    for term in terms or []:
+        key = str(term).strip().lower()
+        if not key:
+            continue
+        canonical = aliases.get(key, key)
+        if canonical not in seen:
+            seen.add(canonical)
+            result.append(canonical)
+    return result

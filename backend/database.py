@@ -1,4 +1,5 @@
 """SQLite storage. Path comes from GRAD2KERJA_DB (default data/app.db)."""
+import json
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -102,6 +103,7 @@ def init_db() -> None:
         _migrate_interview_sessions_table(conn)
         _migrate_interview_answers_table(conn)
         _migrate_skill_matches_table(conn)
+        _normalise_resume_terms(conn)
 
 
 def _migrate_users_table(conn: sqlite3.Connection) -> None:
@@ -152,3 +154,22 @@ def _migrate_skill_matches_table(conn: sqlite3.Connection) -> None:
     for column in ("soft_skills_required", "soft_skills_listed", "matched_by_type", "missing_by_type"):
         if column not in existing:
             conn.execute(f"ALTER TABLE skill_matches ADD COLUMN {column} TEXT")
+
+
+def _normalise_resume_terms(conn: sqlite3.Connection) -> None:
+    """One-off fix for resumes.skills/languages saved before matching normalised case/aliases
+    (e.g. "MS Excel", "English "). Runs on every startup but is a no-op once a row is already
+    normalised. Imported lazily to avoid loading spaCy for every backend/database.py import."""
+    from modules.skill_dictionary import ALIASES, LANGUAGE_ALIASES, normalise_terms
+
+    rows = conn.execute("SELECT id, skills, languages FROM resumes").fetchall()
+    for row in rows:
+        skills = json.loads(row["skills"])
+        languages = json.loads(row["languages"])
+        norm_skills = normalise_terms(skills, ALIASES)
+        norm_languages = normalise_terms(languages, LANGUAGE_ALIASES)
+        if norm_skills != skills or norm_languages != languages:
+            conn.execute(
+                "UPDATE resumes SET skills = ?, languages = ? WHERE id = ?",
+                (json.dumps(norm_skills), json.dumps(norm_languages), row["id"]),
+            )

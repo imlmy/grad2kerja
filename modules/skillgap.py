@@ -7,7 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import APIError, AuthenticationError, OpenAI
 
-from modules.skill_dictionary import skill_type
+from modules.skill_dictionary import ALIASES, LANGUAGE_ALIASES, normalise_terms, skill_type
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env", override=True)
@@ -36,7 +36,17 @@ def check_skill_match(
     error. If the resume has no skills at all, match_pct is 0.0 with a message.
     unrecognised_terms is intentionally not part of this function -- it's internal-only, for
     future manual dictionary review, not something to compare against a job.
+
+    Both sides are normalised (stripped, lowercased, aliased to the canonical term) before
+    comparing, so case/whitespace/wording differences (e.g. "English " vs "english", "MS Excel"
+    vs "microsoft excel") never cause a false mismatch. Returned terms are the canonical,
+    lowercase form.
     """
+    resume_skills = normalise_terms(resume_skills, ALIASES)
+    job_skills = normalise_terms(job_skills, ALIASES)
+    resume_languages = normalise_terms(resume_languages, LANGUAGE_ALIASES)
+    job_languages = normalise_terms(job_languages, LANGUAGE_ALIASES)
+
     job_lang_set = set(job_languages or [])
     resume_lang_set = set(resume_languages or [])
     matched_languages = sorted(resume_lang_set & job_lang_set)
@@ -135,11 +145,12 @@ def explain_gaps(matched: list[str], missing: list[str], job_title: str,
     )
     prompt = (
         f"A fresh graduate is applying for the job '{job_title}'. {have_part} "
-        f"They are missing: {', '.join(missing)}.{soft_part} In at most 150 words: briefly explain "
-        "why the skills they already have are relevant to this role, then explain why each missing "
-        "skill matters for it, and suggest the TYPE of free resource to learn each missing skill "
-        "(e.g. official documentation, a free online course, video tutorials, a practice project) -- "
-        "do not name specific course titles, providers or URLs."
+        f"They are missing: {', '.join(missing)}.{soft_part} In at most 90 words total: one short "
+        "sentence on why the skills they already have are relevant, then exactly one line per "
+        "missing skill, each line stating why that skill matters for the role AND the TYPE of free "
+        "resource to learn it (e.g. official documentation, a free online course, video tutorials, "
+        "a practice project) in that same line -- do not name specific course titles, providers or "
+        "URLs, and do not use nested sub-bullets or a separate \"Learning Resource\" heading."
     )
     try:
         response = OpenAI(api_key=api_key).chat.completions.create(

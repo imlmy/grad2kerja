@@ -4,7 +4,7 @@ import re
 import streamlit as st
 
 from frontend.common import (
-    call, company_avatar, format_date, get_latest_resume, match_badge, nav, pills,
+    call, company_avatar, display_skill, format_date, get_latest_resume, match_badge, nav, pills,
     require_login, soft, start_interview, upload_prompt,
 )
 
@@ -187,7 +187,7 @@ is_saved = jid in saved_ids
 
 
 def _format_list(items: list[str]) -> str:
-    items = [i.title() for i in items]
+    items = [display_skill(i) for i in items]
     if len(items) == 1:
         return items[0]
     return ", ".join(items[:-1]) + " and " + items[-1]

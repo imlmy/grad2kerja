@@ -350,11 +350,46 @@ def page_header(title: str, subtitle: str | None = None) -> None:
         st.caption(subtitle)
 
 
+_SKILL_DISPLAY_OVERRIDES = {
+    # Acronyms and initialisms that look wrong under plain .title() (e.g. "Html", "Erp Systems").
+    "html": "HTML", "css": "CSS", "sql": "SQL", "aws": "AWS", "php": "PHP",
+    "javascript": "JavaScript", "typescript": "TypeScript", "mysql": "MySQL",
+    "mongodb": "MongoDB", "node.js": "Node.js", "react": "React", ".net": ".NET",
+    "c#": "C#", "c++": "C++", "ui/ux design": "UI/UX Design", "sap": "SAP",
+    "ubs accounting": "UBS Accounting", "sales and service tax": "SST", "hris": "HRIS",
+    "kyc": "KYC", "cad software": "CAD Software",
+    "json": "JSON", "jsp": "JSP", "jquery": "jQuery", "nosql": "NoSQL", "orm": "ORM",
+    "etl": "ETL", "itil": "ITIL", "uml": "UML", "vba": "VBA", "seo": "SEO", "devops": "DevOps",
+    "bim": "BIM", "hvac": "HVAC", "hmi": "HMI", "scada": "SCADA", "fmea": "FMEA",
+    "fpga": "FPGA", "haccp": "HACCP", "mvc architecture": "MVC Architecture",
+    "restful apis": "RESTful APIs", "crm systems": "CRM Systems", "erp systems": "ERP Systems",
+    "api integration": "API Integration", "it support": "IT Support", "rtl design": "RTL Design",
+    "pcb assembly": "PCB Assembly", "cnc machining": "CNC Machining",
+    "plc programming": "PLC Programming", "hrd corp claims": "HRD Corp Claims",
+    # Brand/product names with non-default internal casing.
+    "autocad": "AutoCAD", "autocount": "AutoCount", "myob": "MYOB", "quickbooks": "QuickBooks",
+    "wordpress": "WordPress", "servicenow": "ServiceNow", "labview": "LabVIEW",
+    "postgresql": "PostgreSQL", "golang": "Go", "solidworks": "SolidWorks",
+    "microsoft sharepoint": "Microsoft SharePoint", "microsoft powerpoint": "Microsoft PowerPoint",
+    "microsoft sql server": "Microsoft SQL Server", "adobe xd": "Adobe XD",
+    "adobe indesign": "Adobe InDesign", "express.js": "Express.js", "next.js": "Next.js",
+    "vue.js": "Vue.js", "vb.net": "VB.NET",
+}
+
+
+def display_skill(name: str) -> str:
+    """Title-case a canonical skill/language term for display, except for the acronyms and
+    brand names in _SKILL_DISPLAY_OVERRIDES (matched on the lowercase term), which keep their
+    conventional casing instead (e.g. "html" -> "HTML", not "Html")."""
+    key = (name or "").strip().lower()
+    return _SKILL_DISPLAY_OVERRIDES.get(key, (name or "").title())
+
+
 def pills(items: list[str], kind: str) -> None:
     if not items:
         st.caption("None")
         return
-    tags = " ".join(f'<span class="g2k-pill g2k-{kind}">{html.escape(i.title())}</span>' for i in items)
+    tags = " ".join(f'<span class="g2k-pill g2k-{kind}">{html.escape(display_skill(i))}</span>' for i in items)
     st.markdown(tags, unsafe_allow_html=True)
 
 

@@ -24,6 +24,7 @@ from modules.auth import generate_token, hash_password, verify_password  # noqa:
 from modules.interview import evaluate_answer, generate_questions, transcribe  # noqa: E402
 from modules.matching import count_above, match_job, preload_model, recommend_jobs  # noqa: E402
 from modules.resume_parser import parse_resume  # noqa: E402
+from modules.skill_dictionary import ALIASES, LANGUAGE_ALIASES, normalise_terms  # noqa: E402
 from modules.skillgap import check_skill_match, explain_gaps  # noqa: E402
 
 _jobs = pd.read_csv(ROOT / "data" / "jobs_entry_skills.csv")
@@ -312,6 +313,13 @@ def update_resume(resume_id: int, req: ResumeUpdate, user_id: int = Depends(curr
     updates = {k: v for k, v in req.model_dump().items() if v is not None}
     if not updates:
         raise ValueError("Nothing to update.")
+    # Normalise manually-edited skills/languages the same way check_skill_match() does, so e.g.
+    # "MS Excel" or "English " saved here still matches a job's canonical "microsoft excel"/
+    # "english" later, instead of silently falling out of every match.
+    if "skills" in updates:
+        updates["skills"] = normalise_terms(updates["skills"], ALIASES)
+    if "languages" in updates:
+        updates["languages"] = normalise_terms(updates["languages"], LANGUAGE_ALIASES)
     with db() as conn:
         _resume_or_404(conn, resume_id, user_id)
         set_clause = ", ".join(f"{k} = ?" for k in updates)

@@ -24,6 +24,20 @@ def check(label: str, condition: bool) -> None:
         failures += 1
 
 
+# --- 0. Case/alias normalisation: must not cause a false mismatch ---
+print("=== case/alias normalisation ===")
+result = check_skill_match(
+    resume_skills=["MS Excel"], job_skills=["microsoft excel"],
+    resume_languages=["English", "Mandarin "], job_languages=["english", "mandarin"],
+)
+print(result)
+check("'MS Excel' normalises to the canonical term and matches", result["matched"] == ["microsoft excel"])
+check("missing is empty once normalised", result["missing"] == [])
+check("'English'/'Mandarin ' normalise and both match",
+      result["matched_languages"] == ["english", "mandarin"])
+check("no missing languages once normalised", result["missing_languages"] == [])
+print()
+
 # --- 1. Normal match, mixed skill types: soft skills must not affect match_pct ---
 print("=== normal match (soft skills excluded from match_pct) ===")
 result = check_skill_match(

@@ -1,6 +1,17 @@
+import html
+
 import streamlit as st
 
-from frontend.common import call, format_date, get_latest_resume, logout, nav, pills, require_login, soft
+from frontend.common import call, format_date, get_latest_resume, nav, pills, require_login, soft
+
+
+def _field(label: str, value: str | None) -> None:
+    value_html = html.escape(value) if value else '<span style="color:#94A3B8;">Not set</span>'
+    st.markdown(
+        f'<div class="g2k-caption">{html.escape(label)}</div>'
+        f'<div style="margin-bottom:1rem;">{value_html}</div>',
+        unsafe_allow_html=True,
+    )
 
 require_login()
 profile = call("GET", "/profile")
@@ -21,16 +32,19 @@ with st.container(border=True):
     editing = st.session_state.get("profile_editing", False)
 
     if not editing:
-        st.write(f"**Full Name:** {profile['name']}")
-        st.write(f"**Email Address:** {profile['email']}")
-        st.write(f"**Field of Study:** {profile['field_of_study'] or 'Not set'}")
-        st.write(f"**Location:** {profile['location'] or 'Not set'}")
-        c1, c2 = st.columns(2)
-        if c1.button("Edit Profile", type="primary", key="profile_edit_btn"):
+        r1c1, r1c2 = st.columns(2, gap="medium")
+        with r1c1:
+            _field("FULL NAME", profile["name"])
+        with r1c2:
+            _field("EMAIL ADDRESS", profile["email"])
+        r2c1, r2c2 = st.columns(2, gap="medium")
+        with r2c1:
+            _field("FIELD OF STUDY", profile["field_of_study"])
+        with r2c2:
+            _field("LOCATION", profile["location"])
+        if st.button("Edit Profile", type="primary", key="profile_edit_btn"):
             st.session_state["profile_editing"] = True
             st.rerun()
-        if c2.button("Log out", key="profile_logout"):
-            logout()
     else:
         st.write(f"**Email Address:** {profile['email']}")
         st.caption("Email cannot be changed.")

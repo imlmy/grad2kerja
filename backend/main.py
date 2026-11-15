@@ -559,7 +559,9 @@ def skill_gap_for_job(job_id: int, user_id: int = Depends(current_user_id)) -> d
         if resume_row is None:
             return None
         resume = _resume_or_404(conn, resume_row["id"], user_id)
-    result = check_skill_match(resume["skills"], _split(job["skills"]))
+    result = check_skill_match(
+        resume["skills"], _split(job["skills"]), resume["languages"], _split(job["languages"]),
+    )
     return {"match_pct": result["match_pct"], "matched": result["matched"], "missing": result["missing"]}
 
 

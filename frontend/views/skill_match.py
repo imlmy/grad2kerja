@@ -8,15 +8,16 @@ from frontend.common import (
 )
 
 
-def _skill_group(by_type: dict | None, kind: str) -> None:
-    """Pills for the Matched/Missing skills row. "Software & tools"/"Technical skills"
+def _skill_row(label_html: str, by_type: dict | None, kind: str, empty_text: str) -> None:
+    """One "✓ Matched"/"✗ Missing" row of pills. "Software & tools"/"Technical skills"
     subheadings are shown only when BOTH groups are non-empty; otherwise the pills run
     together with no label."""
+    st.markdown(label_html, unsafe_allow_html=True)
     by_type = by_type or {}
     software = by_type.get("software") or []
     technical = by_type.get("technical") or []
     if not software and not technical:
-        st.caption("None yet")
+        st.caption(empty_text)
         return
     if software and technical:
         st.caption("Software & tools")
@@ -27,16 +28,25 @@ def _skill_group(by_type: dict | None, kind: str) -> None:
         pills(software + technical, kind)
 
 
-def _language_pills(matched: list[str], missing: list[str]) -> str:
-    """Matched languages as a green pill with a check mark, missing ones as a plain amber
-    pill -- languages are informational only, never scored like skills."""
-    parts = [
-        '<span class="g2k-pill g2k-match"><span style="font-weight:700;">✓ </span>'
-        f'{html.escape(display_skill(lang))}</span>'
-        for lang in matched
-    ]
-    parts += [f'<span class="g2k-pill g2k-missing">{html.escape(display_skill(lang))}</span>' for lang in missing]
-    return " ".join(parts)
+def _pill_html(items: list[str], kind: str) -> str:
+    return " ".join(f'<span class="g2k-pill g2k-{kind}">{html.escape(display_skill(i))}</span>' for i in items)
+
+
+def _other_skills_group(title: str, matched: list[str], missing: list[str]) -> None:
+    st.markdown(f'<div style="font-weight:700; font-size:0.95rem; margin-bottom:0.4rem;">{html.escape(title)}</div>',
+                unsafe_allow_html=True)
+    if matched:
+        st.markdown(
+            '<div style="margin-bottom:0.3rem;"><span style="color:#166534; font-weight:600;">'
+            f'✓ Matched:</span> {_pill_html(matched, "match")}</div>',
+            unsafe_allow_html=True,
+        )
+    if missing:
+        st.markdown(
+            '<div><span style="color:#92400E; font-weight:600;">✗ Missing:</span> '
+            f'{_pill_html(missing, "missing")}</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def _spacer() -> None:
@@ -66,7 +76,7 @@ if st.button("Back to job", key="sm_back", icon=":material/arrow_back:"):
 
 page_header("Skill Match Analysis", f"{job['title']} at {job['company']}")
 
-# Summary: donut + match count, compact, with the text close to the donut.
+# Summary: donut + match count + matched/missing pills, all in one card.
 with st.container(border=True):
     if gap["match_pct"] is None:
         st.info(gap["message"])
@@ -76,7 +86,7 @@ with st.container(border=True):
                                                icon=":material/upload_file:"):
             nav("resume")
     else:
-        d_col, s_col = st.columns([2, 3], gap="small", vertical_alignment="center")
+        d_col, s_col = st.columns([1, 2], gap="medium", vertical_alignment="center")
         with d_col:
             st.plotly_chart(donut(gap["match_pct"], "Skill Match", height=150), use_container_width=True,
                             config={"displayModeBar": False})
@@ -84,43 +94,27 @@ with st.container(border=True):
             total = len(gap["matched"]) + len(gap["missing"])
             if total:
                 st.markdown(f"**{len(gap['matched'])} of {total} required skills matched**")
-            st.caption("Based on software and technical skills. Soft skills are shown separately "
-                       "because resumes often show them through experience rather than listing them.")
+            _skill_row('<span style="color:#166534; font-weight:600;">✓ Matched</span>',
+                       gap.get("matched_by_type"), "match", "None yet")
+            _skill_row('<span style="color:#92400E; font-weight:600;">✗ Missing</span>',
+                       gap.get("missing_by_type"), "missing", "None missing")
 
-_spacer()
-
-with st.container(border=True):
-    st.subheader("Skills")
-    sk1, sk2 = st.columns(2, gap="medium")
-    with sk1:
-        st.markdown('<span style="color:#166534; font-weight:600;">✓ Matched</span>', unsafe_allow_html=True)
-        _skill_group(gap.get("matched_by_type"), "match")
-    with sk2:
-        st.markdown('<span style="color:#92400E; font-weight:600;">✗ Missing</span>', unsafe_allow_html=True)
-        _skill_group(gap.get("missing_by_type"), "missing")
-
+st.caption("Score is based on software and technical skills.")
 _spacer()
 
 has_soft = bool(gap.get("soft_skills_required"))
 has_languages = bool(gap["matched_languages"] or gap["missing_languages"])
 if has_soft or has_languages:
     with st.container(border=True):
-        st.subheader("Not counted in your score")
+        st.subheader("Other skills")
         if has_soft:
-            st.caption("Soft skills")
-            listed = set(gap.get("soft_skills_listed") or [])
-            soft_pills = " ".join(
-                '<span class="g2k-pill g2k-neutral">'
-                + ('<span style="color:#166534; font-weight:700;">✓ </span>' if s in listed else "")
-                + f'{html.escape(display_skill(s))}</span>'
-                for s in gap["soft_skills_required"]
-            )
-            st.markdown(soft_pills, unsafe_allow_html=True)
+            soft_listed = set(gap.get("soft_skills_listed") or [])
+            soft_missing = [s for s in gap["soft_skills_required"] if s not in soft_listed]
+            _other_skills_group("Soft skills", gap.get("soft_skills_listed") or [], soft_missing)
+        if has_soft and has_languages:
+            st.markdown('<hr style="margin:0.75rem 0; border-color:#E5E7EB;">', unsafe_allow_html=True)
         if has_languages:
-            st.caption("Languages")
-            st.markdown(_language_pills(gap["matched_languages"], gap["missing_languages"]),
-                        unsafe_allow_html=True)
-        st.caption("Soft skills are usually shown through experience; languages are listed separately.")
+            _other_skills_group("Languages", gap["matched_languages"], gap["missing_languages"])
     _spacer()
 
 if gap.get("explanation"):

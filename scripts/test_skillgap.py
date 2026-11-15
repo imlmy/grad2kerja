@@ -38,6 +38,25 @@ check("'English'/'Mandarin ' normalise and both match",
 check("no missing languages once normalised", result["missing_languages"] == [])
 print()
 
+# --- 0b. Proficiency qualifiers must be stripped before alias lookup ---
+print("=== qualifier stripping ===")
+result = check_skill_match(
+    resume_skills=["Python (Advanced)"], job_skills=["python"],
+    resume_languages=["English (Fluent)", "Mandarin: Intermediate"],
+    job_languages=["english", "mandarin", "bahasa malaysia"],
+)
+print(result)
+check("'Python (Advanced)' still matches 'python'", result["matched"] == ["python"])
+check("'English (Fluent)' matches 'english'", "english" in result["matched_languages"])
+check("'Mandarin: Intermediate' matches 'mandarin'", "mandarin" in result["matched_languages"])
+check("'bahasa malaysia' still reported missing", result["missing_languages"] == ["bahasa malaysia"])
+
+result = check_skill_match(
+    resume_skills=[], job_skills=[], resume_languages=["English - Native"], job_languages=["english"],
+)
+check("'English - Native' matches 'english'", result["matched_languages"] == ["english"])
+print()
+
 # --- 1. Normal match, mixed skill types: soft skills must not affect match_pct ---
 print("=== normal match (soft skills excluded from match_pct) ===")
 result = check_skill_match(

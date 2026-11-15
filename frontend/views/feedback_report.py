@@ -62,18 +62,12 @@ st.markdown(
 if report.get("company"):
     st.markdown(f'<div style="color:#64748B;">{html.escape(report["company"])}</div>', unsafe_allow_html=True)
 
-_header_row = []
 date_str = format_date(report["created_at"])
 if date_str:
-    _header_row.append(f'<span style="color:#64748B; font-size:0.85rem;">{html.escape(date_str)}</span>')
-_header_row.append('<span class="g2k-pill g2k-neutral">AI Practice Session</span>')
-if report.get("personalised"):
-    _header_row.append('<span class="g2k-pill g2k-neutral">Personalised</span>')
-st.markdown(
-    '<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; margin-top:0.4rem;">'
-    + " ".join(_header_row) + '</div>',
-    unsafe_allow_html=True,
-)
+    st.markdown(
+        f'<div style="color:#64748B; font-size:0.85rem; margin-top:0.4rem;">{html.escape(date_str)}</div>',
+        unsafe_allow_html=True,
+    )
 
 _spacer()
 
@@ -101,8 +95,12 @@ else:
     if len(type_avgs) >= 2:
         best_type = max(type_avgs, key=type_avgs.get)
         worst_type = min(type_avgs, key=type_avgs.get)
-        right_fields.append(("STRONGEST AREA", f"{best_type.capitalize()} · {type_avgs[best_type]:.1f}/10"))
-        right_fields.append(("NEEDS MOST WORK", f"{worst_type.capitalize()} · {type_avgs[worst_type]:.1f}/10"))
+        if type_avgs[best_type] == type_avgs[worst_type]:
+            right_fields.append(("STRONGEST AREA", "All areas scored equally"))
+            right_fields.append(("NEEDS MOST WORK", "All areas scored equally"))
+        else:
+            right_fields.append(("STRONGEST AREA", f"{best_type.capitalize()} · {type_avgs[best_type]:.1f}/10"))
+            right_fields.append(("NEEDS MOST WORK", f"{worst_type.capitalize()} · {type_avgs[worst_type]:.1f}/10"))
 
     right_cells = "".join(
         f'<div style="flex:1; padding:0 1.25rem;{" border-left:1px solid #E5E7EB;" if i else ""}">'
@@ -111,6 +109,10 @@ else:
         for i, (label, value) in enumerate(right_fields)
     )
 
+    st.info(
+        "Scores and feedback are AI-generated guidance to help you improve. They are not a "
+        "prediction of your interview outcome."
+    )
     with st.container(border=True):
         st.markdown(
             '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:1.5rem;">'
@@ -121,12 +123,6 @@ else:
             '</div>'
             f'<div style="flex:1; display:flex; min-width:220px;">{right_cells}</div>'
             '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="border-top:1px solid #E5E7EB; margin-top:1rem; padding-top:0.6rem; '
-            'font-size:0.8rem; color:#64748B;">ℹ️ Scores and feedback are AI-generated guidance '
-            'to help you improve, not a prediction of your interview outcome.</div>',
             unsafe_allow_html=True,
         )
 

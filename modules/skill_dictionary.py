@@ -9,6 +9,8 @@ To grow the dictionary: add the canonical term to SKILLS, and any variants
 to ALIASES. Do not add very common English words (e.g. "word") as aliases.
 """
 
+import re
+
 from spacy.matcher import PhraseMatcher
 from spacy.tokens import Span
 from spacy.util import filter_spans
@@ -634,12 +636,31 @@ def extract_terms(text, nlp, matcher):
     return {span.label_ for span in filter_spans(spans)}
 
 
+# A trailing proficiency/qualifier suffix on a skill or language, e.g. "English (Fluent)",
+# "English - Native", "Mandarin: Intermediate" -- stripped before alias lookup so the base term
+# still matches. None of SKILLS/LANGUAGES or their aliases end this way, except "version control
+# (git)", which still resolves correctly afterwards via its "version control" alias -- so this is
+# safe to apply unconditionally rather than needing a dictionary lookup first.
+_QUALIFIER_SUFFIX = re.compile(
+    r"\s*\([^)]*\)\s*$"            # trailing "(...)"
+    r"|\s+[-–—]\s+\S.*$"  # trailing " - word..." (dash must be its own token)
+    r"|\s*:\s*\S.*$"                 # trailing ": word..."
+)
+
+
+def _strip_qualifier(key: str) -> str:
+    stripped = _QUALIFIER_SUFFIX.sub("", key).strip(" .,;:-–—")
+    return stripped if stripped else key
+
+
 def normalise_terms(terms: list[str] | None, aliases: dict[str, str]) -> list[str]:
     """Normalise a list of resume/job skill or language terms for matching and storage: strip,
-    lowercase, then map through `aliases` (ALIASES or LANGUAGE_ALIASES) to the canonical term.
-    An unrecognised term keeps its stripped/lowercased form rather than being dropped -- it may
-    still be a real skill the dictionary doesn't have yet. Order is preserved; duplicates that
-    collapse onto the same canonical term (e.g. "Excel" and "MS Excel") are removed."""
+    lowercase, drop a trailing proficiency qualifier (see _strip_qualifier), then map through
+    `aliases` (ALIASES or LANGUAGE_ALIASES) to the canonical term. An unrecognised term keeps its
+    stripped/lowercased form rather than being dropped -- it may still be a real skill the
+    dictionary doesn't have yet. Order is preserved; duplicates that collapse onto the same
+    canonical term (e.g. "Excel" and "MS Excel", or "English" and "English (Fluent)") are
+    removed."""
     seen = set()
     result = []
     for term in terms or []:
@@ -647,6 +668,10 @@ def normalise_terms(terms: list[str] | None, aliases: dict[str, str]) -> list[st
         if not key:
             continue
         canonical = aliases.get(key, key)
+        if canonical == key:
+            stripped = _strip_qualifier(key)
+            if stripped != key:
+                canonical = aliases.get(stripped, stripped)
         if canonical not in seen:
             seen.add(canonical)
             result.append(canonical)

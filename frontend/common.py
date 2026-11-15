@@ -184,6 +184,25 @@ STYLE = """
     box-shadow: 0 8px 20px rgba(15,23,42,0.10);
     transform: translateY(-2px);
 }
+.st-key-g2k_logout {
+    position: fixed;
+    top: 0.55rem;
+    right: 3.25rem;
+    z-index: 999990;
+    width: auto;
+}
+.st-key-g2k_logout button {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.875rem;
+    color: #64748B;
+    border-color: transparent;
+    background: transparent;
+}
+.st-key-g2k_logout button:hover {
+    color: #0F172A;
+    border-color: #E2E8F0;
+    background: #F8FAFC;
+}
 </style>
 """
 
@@ -316,6 +335,14 @@ def logout() -> None:
     login_page = st.session_state["pages"]["login"]
     st.session_state.clear()
     st.switch_page(login_page)
+
+
+def render_logout_button() -> None:
+    """A compact "Log out" button pinned to the header bar (see .st-key-g2k_logout in STYLE),
+    left of Streamlit's own ⋮ menu. Call once per logged-in page, before st.navigation(...).run()."""
+    with st.container(key="g2k_logout"):
+        if st.button("Log out", key="logout_btn", icon=":material/logout:", type="tertiary"):
+            logout()
 
 
 def start_interview(job_id: int) -> None:

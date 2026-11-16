@@ -444,12 +444,12 @@ def recommend(req: RecommendRequest, user_id: int = Depends(current_user_id)) ->
 
 @app.get("/recommendations/strong-count")
 def strong_match_count(resume_id: int, user_id: int = Depends(current_user_id)) -> dict:
-    """Count of jobs across the WHOLE dataset (unfiltered) with an AI Match of 60% or higher for
+    """Count of jobs across the WHOLE dataset (unfiltered) with an AI Match of 65% or higher for
     this resume -- for the dashboard's "Strong matches" stat, which is not the same as the number
     of stored recommendations (that list is capped and may be narrowed by Find a Job filters)."""
     with db() as conn:
         resume = _resume_or_404(conn, resume_id, user_id)
-    return {"count": count_above(resume, threshold=0.60), "threshold": 60}
+    return {"count": count_above(resume, threshold=0.65), "threshold": 65}
 
 
 @app.get("/recommendations/latest")

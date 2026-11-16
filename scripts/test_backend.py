@@ -179,9 +179,9 @@ try:
 
         strong_count = call(client, "GET", "/recommendations/strong-count", label="strong match count",
                             params={"resume_id": rid})
-        assert strong_count["threshold"] == 60
+        assert strong_count["threshold"] == 65
         assert strong_count["count"] >= 0
-        print(f"   strong matches (>=60% AI Match) across the whole dataset: {strong_count['count']}")
+        print(f"   strong matches (>=65% AI Match) across the whole dataset: {strong_count['count']}")
         call(client, "GET", "/recommendations/strong-count", 404, "strong match count for a missing resume id",
              params={"resume_id": 999999})
 

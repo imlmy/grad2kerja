@@ -102,9 +102,9 @@ def recommend_jobs(resume: dict, k: int = 20, filters: dict | None = None) -> pd
     })
 
 
-def count_above(resume: dict, threshold: float = 0.60) -> int:
+def count_above(resume: dict, threshold: float = 0.65) -> int:
     """Number of jobs in the whole dataset (unfiltered) with a cosine similarity to `resume` at
-    or above `threshold` (0..1) -- used for the dashboard's "Strong matches" stat, which counts
-    across every job regardless of any Find a Job filters."""
+    or above `threshold` (0..1, default 0.65) -- used for the dashboard's "Strong matches" stat,
+    which counts across every job regardless of any Find a Job filters."""
     _, scores = _score_candidates(resume, filters=None)
     return int(np.count_nonzero(scores >= threshold))

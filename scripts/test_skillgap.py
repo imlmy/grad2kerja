@@ -182,6 +182,30 @@ with patch("modules.skillgap.OpenAI") as mock_openai_cls:
     check("no soft_skills key in the result when not requested", "soft_skills" not in result_no_soft)
 print()
 
+# --- 6b. Mocked: a job_text excerpt is folded into the prompt when given ---
+print("=== mocked: job_text excerpt included in the prompt ===")
+with patch("modules.skillgap.OpenAI") as mock_openai_cls:
+    client = MagicMock()
+    message = MagicMock()
+    message.content = json.dumps({
+        "summary": "Good fit.",
+        "missing": [{"skill": "sql", "why": "Needed.", "learn": "Build a project."}],
+    })
+    client.chat.completions.create.return_value.choices = [MagicMock(message=message)]
+    mock_openai_cls.return_value = client
+    explain_gaps(["python"], ["sql"], "Backend Developer", "Maintain databases and write SQL reports.")
+    _, kwargs = client.chat.completions.create.call_args
+    prompt = kwargs["messages"][0]["content"]
+    check("job_text excerpt appears in the prompt", "Maintain databases and write SQL reports." in prompt)
+    check("prompt tells the model not to invent requirements", "invent requirements" in prompt.lower())
+
+    client.reset_mock()
+    explain_gaps(["python"], ["sql"], "Backend Developer")
+    _, kwargs = client.chat.completions.create.call_args
+    prompt_no_text = kwargs["messages"][0]["content"]
+    check("no job_text given -> no excerpt added to the prompt", "excerpt" not in prompt_no_text.lower())
+print()
+
 # --- 7. Mocked: invalid JSON is retried once, then raises RuntimeError ---
 print("=== mocked: invalid JSON retried once, then RuntimeError ===")
 with patch("modules.skillgap.OpenAI") as mock_openai_cls:

@@ -22,6 +22,7 @@ from backend.schemas import (  # noqa: E402
 )
 from modules.auth import generate_token, hash_password, verify_password  # noqa: E402
 from modules.interview import evaluate_answer, generate_questions, transcribe  # noqa: E402
+from modules.job_text import requirement_text  # noqa: E402
 from modules.matching import count_above, match_job, preload_model, recommend_jobs  # noqa: E402
 from modules.resume_parser import parse_resume  # noqa: E402
 from modules.skill_dictionary import ALIASES, LANGUAGE_ALIASES, normalise_terms  # noqa: E402
@@ -492,9 +493,10 @@ def skill_gap(req: SkillGapRequest, user_id: int = Depends(current_user_id)) -> 
 
     result["explanation"] = None
     if req.explain and result["missing"]:
+        job_text = requirement_text(job["description_display"], job["descriptions"])[:1000]
         try:
             result["explanation"] = explain_gaps(result["matched"], result["missing"], job["job_title"],
-                                                  soft_skills=result["soft_skills_required"])
+                                                  job_text, soft_skills=result["soft_skills_required"])
         except RuntimeError as e:
             # UC008 alt flow 8.1: the skill match itself is still good, just note the explanation
             # couldn't be generated, instead of losing the whole result.

@@ -176,6 +176,19 @@ STYLE = """
     color:#94A3B8;
     margin-bottom:0.5rem;
 }
+/* Skill Match's "AI insights" card: the Why it matters / How to close the gap pair inside each
+   missing-skill mini-card, side by side on wide screens and stacked on narrow ones. */
+.g2k-gap-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0.75rem;
+    margin-top:0.5rem;
+}
+@media (max-width:640px) {
+    .g2k-gap-grid {
+        grid-template-columns:1fr;
+    }
+}
 /* Every bordered st.container(border=True) card is given a key starting with "g2k_card" (see
    below) specifically so it can be targeted here -- Streamlit's bordered container has no
    distinguishing data-testid of its own (border is just a conditional style on the same

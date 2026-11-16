@@ -141,12 +141,16 @@ def _clean_explanation(data: object, missing: list[str]) -> dict | None:
     return {"summary": summary.strip(), "missing": cleaned_missing}
 
 
-def explain_gaps(matched: list[str], missing: list[str], job_title: str,
+def explain_gaps(matched: list[str], missing: list[str], job_title: str, job_text: str = "",
                   soft_skills: list[str] | None = None) -> dict | None:
     """Ask the LLM to explain why the matched skills are relevant and, for each missing skill,
-    why it matters for the role and the TYPE of free resource to learn it (not specific course
-    names or URLs, which go stale and can't be verified here). Speaks to the user directly as
+    why it matters for the role and one concrete way to build it. Speaks to the user directly as
     "you", not "they" or "the candidate".
+
+    job_text, if given, is an excerpt of the job's requirement text (see
+    modules.job_text.requirement_text) -- grounds "why" in what the role actually involves
+    instead of a generic definition of the skill, and the prompt tells the model not to invent
+    requirements that aren't in it.
 
     soft_skills, if given, are the role's required soft skills -- described in the result as
     qualities to demonstrate through experience and in the mock interview, never as something
@@ -172,21 +176,56 @@ def explain_gaps(matched: list[str], missing: list[str], job_title: str,
     have_part = f"You already have: {', '.join(matched)}." if matched else (
         "You don't yet have any of the skills this role lists."
     )
+    job_text_part = (
+        f"\n\nHere is an excerpt of the actual job description, so you can ground your answer in "
+        f'what the role really involves -- do not invent requirements that aren\'t in this text: '
+        f'"{job_text}"'
+        if job_text else ""
+    )
     soft_instruction = (
-        f' Also include a "soft_skills" field: one sentence noting that '
-        f'{", ".join(soft_skills)} are best demonstrated through experience and interview '
-        "practice, not studied like the missing skills above."
+        f' Also include a "soft_skills" field: one short sentence giving a practical way to '
+        f'demonstrate {", ".join(soft_skills)} through experience or in the interview, rather '
+        "than studying them like the missing skills above. The sentence must start with the "
+        f'skill name itself as its first word(s) -- for example start with "{soft_skills[0].title()} '
+        f'is..." or "{soft_skills[0].title()} shows...", never with a verb like "Demonstrate" or '
+        '"Show".'
         if soft_skills else ""
     )
+    if soft_skills:
+        example = (
+            ' Here is one example of the expected tone and JSON shape only -- it is not real '
+            "data, so the skills, wording and content in your actual reply must come from THIS "
+            'job and THIS candidate, not be copied from it: {"summary": "You already bring '
+            'strong foundations in teamwork and communication that are valuable for this type '
+            'of role.", "missing": [{"skill": "sql", "why": "This role involves querying and '
+            "maintaining databases, so SQL is needed to work with structured data efficiently.\", "
+            '"learn": "Build a small project that stores and queries sample data with SQL, such '
+            'as a simple inventory tracker."}], "soft_skills": "Teamwork is best demonstrated by '
+            'describing examples of past group projects or collaboration during your interview."}'
+        )
+    else:
+        example = (
+            ' Here is one example of the expected tone and JSON shape only -- it is not real '
+            "data, so the skills, wording and content in your actual reply must come from THIS "
+            'job and THIS candidate, not be copied from it: {"summary": "You already bring '
+            'strong foundations in teamwork and communication that are valuable for this type '
+            'of role.", "missing": [{"skill": "sql", "why": "This role involves querying and '
+            "maintaining databases, so SQL is needed to work with structured data efficiently.\", "
+            '"learn": "Build a small project that stores and queries sample data with SQL, such '
+            'as a simple inventory tracker."}]}'
+        )
     prompt = (
         f"You are a fresh graduate applying for the job '{job_title}'. {have_part} You are "
-        f"missing: {', '.join(missing)}. Speak to the user directly as \"you\" throughout, never "
-        'in the third person. Reply with JSON only in this exact form: {"summary": "<one sentence '
-        'on why the skills you already have are relevant>", "missing": [{"skill": "<exact '
-        'missing skill name>", "why": "<one short sentence, at most 20 words, on why it matters '
-        'for this role>", "learn": "<type of free resource, e.g. Official documentation, Free '
-        'online course, Video tutorials, Practice project>"}, ...]}' + soft_instruction +
-        " Do not name specific course titles, providers or URLs."
+        f"missing: {', '.join(missing)}.{job_text_part} Speak to the user directly as \"you\" "
+        'throughout, never in the third person, and use plain language. Reply with JSON only in '
+        'this exact form: {"summary": "<one short sentence on what the skills you already have '
+        'cover for this role>", "missing": [{"skill": "<exact missing skill name>", "why": '
+        '"<1-2 sentences, at most 30 words, on why this skill matters for THIS job based on what '
+        "the role involves -- not a general definition of the skill, and don't start with "
+        '\'It\'s\' or \'It is\'>", "learn": "<one concrete suggestion, at most 25 words, that '
+        "produces something tangible such as a page, app or report, ideally building on a skill "
+        'or project you already have; general tool or framework names are fine>"}, ...]}' +
+        soft_instruction + example + " Do not name specific course titles, providers or URLs."
     )
 
     for _ in range(2):

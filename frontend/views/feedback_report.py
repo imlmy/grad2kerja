@@ -113,13 +113,15 @@ else:
         "Scores and feedback are AI-generated guidance to help you improve. They are not a "
         "prediction of your interview outcome."
     )
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_feedback_summary"):
         st.markdown(
-            '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:1.5rem;">'
+            '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:1.5rem; '
+            'padding:0.25rem 0 0.5rem;">'
             '<div style="flex:0 0 40%; min-width:180px;">'
             '<div class="g2k-caption">OVERALL SCORE</div>'
             f'<div class="g2k-score g2k-text-{tier}">{report["overall_score"]}<span> / 100</span></div>'
-            f'<span class="g2k-pill g2k-tier-{tier}">{html.escape(overall_label(report["overall_score"]))}</span>'
+            f'<span class="g2k-pill g2k-tier-{tier}" style="display:inline-block; margin-top:0.5rem;">'
+            f'{html.escape(overall_label(report["overall_score"]))}</span>'
             '</div>'
             f'<div style="flex:1; display:flex; min-width:220px;">{right_cells}</div>'
             '</div>',

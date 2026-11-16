@@ -176,9 +176,17 @@ STYLE = """
     color:#94A3B8;
     margin-bottom:0.5rem;
 }
+/* Every bordered st.container(border=True) card is given a key starting with "g2k_card" (see
+   below) specifically so it can be targeted here -- Streamlit's bordered container has no
+   distinguishing data-testid of its own (border is just a conditional style on the same
+   stVerticalBlock testid every container uses), so a shared key is the reliable, documented way
+   to style "every card" globally instead of guessing an internal implementation detail.
+   padding-bottom gives the last element (a pill, a button...) ~1rem of space above the border,
+   instead of sitting right on it. */
 [class*="st-key-g2k_card"] {
     transition: box-shadow 0.2s ease, transform 0.2s ease;
     border-radius:12px;
+    padding-bottom: 1rem;
 }
 [class*="st-key-g2k_card"]:hover {
     box-shadow: 0 8px 20px rgba(15,23,42,0.10);
@@ -359,7 +367,7 @@ def start_interview(job_id: int) -> None:
 
 def upload_prompt(message: str) -> None:
     """Show a prompt to upload a resume, then stop the page."""
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_upload_prompt"):
         st.write(message)
         if st.button("Upload resume", type="primary", key="upload_prompt"):
             nav("resume")

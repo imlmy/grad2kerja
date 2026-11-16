@@ -21,7 +21,7 @@ start, end = page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE
 total = len(sessions)
 
 for s in sessions[start:end]:
-    with st.container(border=True):
+    with st.container(border=True, key=f"g2k_card_history_{s['id']}"):
         c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
         with c1:
             st.markdown(f"**{s['job_title'] or 'Unknown role'}**")

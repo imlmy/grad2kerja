@@ -71,7 +71,7 @@ def _card(col, title: str, rid: int, key: str, parsed: dict, view_fn, widget_fn,
     widget_key = f"widget_{key}_{rid}"
     editing = st.session_state.get(editing_key, False)
     with col:
-        with st.container(border=True):
+        with st.container(border=True, key=f"g2k_card_{key}_{rid}"):
             h1, h2 = st.columns([6, 1], vertical_alignment="center")
             h1.markdown(f"**{title}**")
             if not editing:

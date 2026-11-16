@@ -37,14 +37,14 @@ def _other_skills_group(title: str, matched: list[str], missing: list[str]) -> N
                 unsafe_allow_html=True)
     if matched:
         st.markdown(
-            '<div style="margin-bottom:0.3rem;"><span style="color:#166534; font-weight:600;">'
+            '<div style="margin-bottom:0.75rem;"><span style="color:#166534; font-weight:600;">'
             f'✓ Matched:</span> {_pill_html(matched, "match")}</div>',
             unsafe_allow_html=True,
         )
     if missing:
         st.markdown(
-            '<div><span style="color:#92400E; font-weight:600;">✗ Missing:</span> '
-            f'{_pill_html(missing, "missing")}</div>',
+            '<div style="margin-bottom:0.75rem;"><span style="color:#92400E; font-weight:600;">'
+            f'✗ Missing:</span> {_pill_html(missing, "missing")}</div>',
             unsafe_allow_html=True,
         )
 
@@ -54,7 +54,7 @@ def _ai_insights(explanation: dict) -> None:
     skill (an amber pill, why it matters, and a small grey "how to learn it" tag), and -- if the
     role also values soft skills -- a light-blue callout at the bottom. Reuses the g2k-pill/
     g2k-missing/g2k-neutral styles and colours from frontend/common.py."""
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_ai_insights"):
         st.markdown(
             '<div style="display:flex; justify-content:space-between; align-items:center;">'
             '<div style="display:flex; align-items:center; gap:0.5rem;">'
@@ -123,7 +123,7 @@ if st.button("Back to job", key="sm_back", icon=":material/arrow_back:"):
 page_header("Skill Match Analysis", f"{job['title']} at {job['company']}")
 
 # Summary: donut + match count + matched/missing pills, all in one card.
-with st.container(border=True):
+with st.container(border=True, key="g2k_card_skill_summary"):
     if gap["match_pct"] is None:
         st.info(gap["message"])
         # UC008 alt flow 3.1: no skills on the resume -- point the user at fixing that, not
@@ -151,7 +151,7 @@ _spacer()
 has_soft = bool(gap.get("soft_skills_required"))
 has_languages = bool(gap["matched_languages"] or gap["missing_languages"])
 if has_soft or has_languages:
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_other_skills"):
         st.subheader("Other skills")
         if has_soft:
             soft_listed = set(gap.get("soft_skills_listed") or [])

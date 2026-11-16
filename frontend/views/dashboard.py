@@ -50,7 +50,7 @@ st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
 col_rec, col_skill, col_perf = st.columns(3, gap="medium")
 
 with col_rec:
-    with st.container(border=True, height="stretch"):
+    with st.container(border=True, height="stretch", key="g2k_card_top_recommendations"):
         st.subheader("Top Recommendations")
         if resume is None:
             st.caption("Upload a resume to see job matches.")
@@ -71,7 +71,7 @@ with col_rec:
             nav("find_job")
 
 with col_skill:
-    with st.container(border=True, height="stretch"):
+    with st.container(border=True, height="stretch", key="g2k_card_skill_match_summary"):
         st.subheader("Skill Match Summary")
         gap, err = soft("GET", "/skill-gap/latest")
         if not gap and recs:
@@ -93,7 +93,7 @@ with col_skill:
                 select_job(gap["job_id"], "skill_match")
 
 with col_perf:
-    with st.container(border=True, height="stretch"):
+    with st.container(border=True, height="stretch", key="g2k_card_interview_performance"):
         st.subheader("Interview Performance")
         if completed_sessions:
             latest = completed_sessions[0]

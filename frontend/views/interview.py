@@ -56,17 +56,17 @@ _step_indicator(idx, total)
 question = questions[idx]
 qid = question["id"]
 
-with st.container(border=True):
+with st.container(border=True, key="g2k_card_question"):
     if question.get("type"):
         st.markdown(type_tag(question["type"]), unsafe_allow_html=True)
     st.markdown(f"**{question['question']}**")
 
 if qid in answers:
     result = answers[qid]
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_your_answer"):
         st.caption("Your answer")
         st.write(result["answer"])
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_ai_feedback"):
         st.caption("AI interview feedback")
         st.markdown(
             f'<div class="g2k-score g2k-text-{score_tier(result["score"] * 10)}">'

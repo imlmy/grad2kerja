@@ -27,7 +27,7 @@ st.markdown(
 if msg := st.session_state.pop("profile_message", None):
     st.success(msg)
 
-with st.container(border=True):
+with st.container(border=True, key="g2k_card_personal_info"):
     st.subheader("Personal information")
     editing = st.session_state.get("profile_editing", False)
 
@@ -81,7 +81,7 @@ with st.container(border=True):
                     st.rerun()
 
 resume = get_latest_resume()
-with st.container(border=True):
+with st.container(border=True, key="g2k_card_resume_summary"):
     st.subheader("Resume")
     if resume is None:
         st.write("No resume uploaded yet.")

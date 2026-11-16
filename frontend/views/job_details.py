@@ -229,7 +229,7 @@ st.markdown(" ".join(tags), unsafe_allow_html=True)
 # never overwrites the dashboard's stored skill match (that's a separate, deliberate action on
 # the Skill Match page, not something this page should trigger as a side effect).
 if resume is None:
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_jd_upload"):
         st.write("Upload your resume to see how well you match this role.")
         if st.button("Upload resume", type="primary", key="jd_upload", icon=":material/upload_file:"):
             nav("resume")
@@ -244,7 +244,7 @@ elif job_match is not None:
 
 left, right = st.columns([3, 2], gap="large")
 with left:
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_job_description"):
         st.subheader("Job description")
         description = job["description"] or ""
         resume_skill_set = {s.lower() for s in resume["skills"]} if resume else set()
@@ -256,7 +256,7 @@ with left:
             st.write(_truncate_at_word(description, 600))
             with st.expander("Show full description"):
                 _render_description(_parse_description(description), job["skills"], resume_skill_set)
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_requirements"):
         st.subheader("Requirements")
         pills(job["skills"], "neutral")
 
@@ -271,7 +271,7 @@ def _info_row(icon: str, label: str, value: str) -> None:
 
 
 with right:
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_job_info"):
         _info_row("payments", "Salary", job["salary"] or "Not stated")
         _info_row("location_on", "Location", job["location"])
         _info_row("military_tech", "Experience level", "Entry level")
@@ -299,7 +299,7 @@ with right:
             st.rerun()
 
     st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
-    with st.container(border=True):
+    with st.container(border=True, key="g2k_card_readiness"):
         st.subheader("Your readiness")
         if resume is None:
             upload_prompt("Upload your resume to see your readiness for this role.")

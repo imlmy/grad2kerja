@@ -54,9 +54,9 @@ with st.container(border=True, key="g2k_card_personal_info"):
                                            placeholder="Optional")
             location = st.text_input("Location", value=profile["location"],
                                      placeholder="e.g. Petaling Jaya, Selangor")
-            s1, s2 = st.columns(2)
-            save = s1.form_submit_button("Save", type="primary")
-            cancel = s2.form_submit_button("Cancel")
+            with st.container(horizontal=True, gap="small"):
+                save = st.form_submit_button("Save", type="primary")
+                cancel = st.form_submit_button("Cancel")
 
         if cancel:
             st.session_state["profile_editing"] = False

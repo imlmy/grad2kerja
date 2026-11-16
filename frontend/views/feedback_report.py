@@ -175,8 +175,8 @@ for q in report["questions"]:
 
 _spacer()
 
-c1, c2 = st.columns(2)
-if c1.button("Practise again", type="primary", key="fr_again"):
-    start_interview(report["job_id"])
-if c2.button("Back to interview history", key="fr_history"):
-    nav("interview_history")
+with st.container(horizontal=True, gap="small"):
+    if st.button("Practise again", type="primary", key="fr_again", icon=":material/replay:"):
+        start_interview(report["job_id"])
+    if st.button("Back to interview history", key="fr_history", icon=":material/history:"):
+        nav("interview_history")

@@ -54,12 +54,26 @@ def _view_entries(entries: list[str]) -> None:
                 '</div>'
             )
         st.markdown(header, unsafe_allow_html=True)
+
+        # Consecutive bullet lines are batched into one st.markdown call -- each separate
+        # st.markdown("- ...") call would otherwise be its own <ul> with Streamlit's normal
+        # inter-element gap between them, which is what made bullets look so far apart.
+        bullets: list[str] = []
+
+        def _flush_bullets() -> None:
+            if bullets:
+                st.markdown("\n".join(f"- {b}" for b in bullets))
+                bullets.clear()
+
         for line in lines[1:]:
             if _looks_like_tool_list(line):
+                _flush_bullets()
                 st.markdown(f'<div style="color:#64748B; font-size:0.85rem;">{html.escape(line)}</div>',
                             unsafe_allow_html=True)
             else:
-                st.markdown(f"- {line}")
+                bullets.append(line)
+        _flush_bullets()
+
         if i < len(entries) - 1:
             st.markdown('<hr style="margin:0.6rem 0; border-color:#E5E7EB;">', unsafe_allow_html=True)
 
@@ -72,25 +86,27 @@ def _card(col, title: str, rid: int, key: str, parsed: dict, view_fn, widget_fn,
     editing = st.session_state.get(editing_key, False)
     with col:
         with st.container(border=True, key=f"g2k_card_{key}_{rid}"):
-            h1, h2 = st.columns([6, 1], vertical_alignment="center")
-            h1.markdown(f"**{title}**")
-            if not editing:
-                if h2.button("", key=f"edit_{key}_{rid}", icon=":material/edit:", help="Edit"):
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown(f"**{title}**")
+                st.container(width="stretch")  # spacer: pushes the edit button to the right edge
+                if not editing and st.button("", key=f"edit_{key}_{rid}", type="tertiary",
+                                              icon=":material/edit:", help="Edit"):
                     st.session_state[editing_key] = True
                     st.rerun()
+            if not editing:
                 view_fn(parsed[key])
             else:
                 widget_fn(widget_key, parsed[key])
-                s1, s2 = st.columns(2)
-                if s1.button("Save", type="primary", key=f"save_{key}_{rid}"):
-                    value = to_value(st.session_state[widget_key])
-                    updated = call("PATCH", f"/resumes/{rid}", json={key: value})
-                    st.session_state["parsed_resume"] = updated
-                    st.session_state[editing_key] = False
-                    st.rerun()
-                if s2.button("Cancel", key=f"cancel_{key}_{rid}"):
-                    st.session_state[editing_key] = False
-                    st.rerun()
+                with st.container(horizontal=True, gap="small"):
+                    if st.button("Save", type="primary", key=f"save_{key}_{rid}"):
+                        value = to_value(st.session_state[widget_key])
+                        updated = call("PATCH", f"/resumes/{rid}", json={key: value})
+                        st.session_state["parsed_resume"] = updated
+                        st.session_state[editing_key] = False
+                        st.rerun()
+                    if st.button("Cancel", key=f"cancel_{key}_{rid}"):
+                        st.session_state[editing_key] = False
+                        st.rerun()
 
 
 def _spacer() -> None:

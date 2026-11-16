@@ -188,6 +188,23 @@ STYLE = """
     border-radius:12px;
     padding-bottom: 1rem;
 }
+/* The Resume page's small icon-only "Edit" button on each card header: subtle grey, primary
+   blue on hover, instead of the default tertiary-button colour. */
+[class*="st-key-edit_"] button {
+    color: #64748B;
+}
+[class*="st-key-edit_"] button:hover {
+    color: #0B3FB8;
+}
+/* Resume entry bullets (Education/Experience/Projects) are rendered as one markdown list per
+   entry, so this only ever affects those -- Streamlit's default <li> spacing made them look far
+   apart. */
+[data-testid="stMarkdownContainer"] ul {
+    margin: 0;
+}
+[data-testid="stMarkdownContainer"] ul li {
+    margin-bottom: 0.15rem;
+}
 [class*="st-key-g2k_card"]:hover {
     box-shadow: 0 8px 20px rgba(15,23,42,0.10);
     transform: translateY(-2px);

@@ -5,6 +5,7 @@ tested without spending money or needing network).
 
 Usage: venv/Scripts/python scripts/test_skillgap.py
 """
+import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -138,27 +139,91 @@ with patch("modules.skillgap.OpenAI") as mock_openai_cls:
     check("timeout=20 was passed to the API call", kwargs.get("timeout") == 20)
 print()
 
-# --- 6. Mocked: explain_gaps describes soft skills as qualities to demonstrate, not missing ---
-print("=== mocked: explain_gaps separates soft skills from missing skills ===")
+# --- 6. Mocked: explain_gaps returns structured JSON and separates soft skills from missing ---
+print("=== mocked: explain_gaps returns structured JSON, separates soft skills ===")
 with patch("modules.skillgap.OpenAI") as mock_openai_cls:
     client = MagicMock()
     message = MagicMock()
-    message.content = "Explanation text."
+    message.content = json.dumps({
+        "summary": "Your Python experience is directly relevant.",
+        "missing": [{"skill": "sql", "why": "Used to query data.", "learn": "Official documentation"}],
+        "soft_skills": "Teamwork is best demonstrated through experience and interview practice.",
+    })
     client.chat.completions.create.return_value.choices = [MagicMock(message=message)]
     mock_openai_cls.return_value = client
-    explain_gaps(["python"], ["sql"], "Backend Developer", soft_skills=["teamwork"])
+    result = explain_gaps(["python"], ["sql"], "Backend Developer", soft_skills=["teamwork"])
     _, kwargs = client.chat.completions.create.call_args
     prompt = kwargs["messages"][0]["content"]
+    check("prompt speaks to the user directly as 'you'",
+          "you already have" in prompt.lower() and "they already have" not in prompt.lower())
     check("prompt mentions the soft skill", "teamwork" in prompt.lower())
     check("prompt frames soft skills as qualities to demonstrate, not studied",
           "demonstrat" in prompt.lower())
+    check("prompt requests JSON only", "json" in prompt.lower())
+    check("response_format requests a JSON object", kwargs.get("response_format") == {"type": "json_object"})
+    check("result has the model's summary", result["summary"] == "Your Python experience is directly relevant.")
+    check("result has the missing-skill breakdown",
+          result["missing"] == [{"skill": "sql", "why": "Used to query data.", "learn": "Official documentation"}])
+    check("result carries the soft_skills note",
+          result["soft_skills"] == "Teamwork is best demonstrated through experience and interview practice.")
 
     client.reset_mock()
-    explain_gaps(["python"], ["sql"], "Backend Developer", soft_skills=None)
+    message_no_soft = MagicMock()
+    message_no_soft.content = json.dumps({
+        "summary": "Your Python experience is directly relevant.",
+        "missing": [{"skill": "sql", "why": "Used to query data.", "learn": "Official documentation"}],
+    })
+    client.chat.completions.create.return_value.choices = [MagicMock(message=message_no_soft)]
+    result_no_soft = explain_gaps(["python"], ["sql"], "Backend Developer", soft_skills=None)
     _, kwargs = client.chat.completions.create.call_args
     prompt_no_soft = kwargs["messages"][0]["content"]
     check("no soft_skills given -> no soft-skills mention in the prompt",
           "soft skill" not in prompt_no_soft.lower())
+    check("no soft_skills key in the result when not requested", "soft_skills" not in result_no_soft)
+print()
+
+# --- 7. Mocked: invalid JSON is retried once, then raises RuntimeError ---
+print("=== mocked: invalid JSON retried once, then RuntimeError ===")
+with patch("modules.skillgap.OpenAI") as mock_openai_cls:
+    client = MagicMock()
+    bad_message = MagicMock()
+    bad_message.content = "not valid json"
+    client.chat.completions.create.return_value.choices = [MagicMock(message=bad_message)]
+    mock_openai_cls.return_value = client
+    try:
+        explain_gaps(["python"], ["sql"], "Backend Developer")
+        check("raises RuntimeError when the JSON is still invalid after one retry", False)
+    except RuntimeError:
+        check("raises RuntimeError when the JSON is still invalid after one retry", True)
+    check("retried exactly once (2 calls total)", client.chat.completions.create.call_count == 2)
+print()
+
+# --- 8. Mocked: a missing-skill item the model invented is dropped, not kept ---
+print("=== mocked: hallucinated skill not in `missing` is dropped ===")
+with patch("modules.skillgap.OpenAI") as mock_openai_cls:
+    client = MagicMock()
+    message = MagicMock()
+    message.content = json.dumps({
+        "summary": "Good relevant skills.",
+        "missing": [
+            {"skill": "sql", "why": "Needed for queries.", "learn": "Official documentation"},
+            {"skill": "excel", "why": "Not actually required for this role.", "learn": "Free online course"},
+        ],
+    })
+    client.chat.completions.create.return_value.choices = [MagicMock(message=message)]
+    mock_openai_cls.return_value = client
+    result = explain_gaps(["python"], ["sql"], "Backend Developer")
+    check("hallucinated 'excel' item (not in `missing`) is dropped", result["missing"] == [
+        {"skill": "sql", "why": "Needed for queries.", "learn": "Official documentation"},
+    ])
+print()
+
+# --- 9. No missing skills -> None, no API call made ---
+print("=== no missing skills -> None, no API call ===")
+with patch("modules.skillgap.OpenAI") as mock_openai_cls:
+    result = explain_gaps(["python"], [], "Backend Developer")
+    check("returns None when there are no missing skills", result is None)
+    check("no API call made", not mock_openai_cls.called)
 print()
 
 if failures:

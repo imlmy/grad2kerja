@@ -1,6 +1,7 @@
 """Check Skill Match: compare a resume's skills and languages with a job's."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -114,52 +115,102 @@ def check_skill_match(
     }
 
 
+def _clean_explanation(data: object, missing: list[str]) -> dict | None:
+    """Validate the model's parsed JSON reply. Returns the cleaned {"summary", "missing"} dict,
+    or None if the shape is invalid (caller retries once, then raises RuntimeError). An item
+    whose "skill" isn't in `missing` is dropped rather than invalidating the whole reply -- the
+    model naming an extra or misspelled skill shouldn't lose the rest of a good explanation."""
+    if not isinstance(data, dict):
+        return None
+    summary = data.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        return None
+    raw_missing = data.get("missing")
+    if not isinstance(raw_missing, list):
+        return None
+    missing_set = set(missing)
+    cleaned_missing = []
+    for item in raw_missing:
+        if not isinstance(item, dict):
+            return None
+        skill, why, learn = item.get("skill"), item.get("why"), item.get("learn")
+        if not all(isinstance(v, str) and v.strip() for v in (skill, why, learn)):
+            return None
+        if skill in missing_set:
+            cleaned_missing.append({"skill": skill.strip(), "why": why.strip(), "learn": learn.strip()})
+    return {"summary": summary.strip(), "missing": cleaned_missing}
+
+
 def explain_gaps(matched: list[str], missing: list[str], job_title: str,
-                  soft_skills: list[str] | None = None) -> str:
-    """Ask the LLM to explain why the matched skills are relevant and what the missing ones are
-    for, with the TYPE of free resource to learn each missing one (not specific course names or
-    URLs, which go stale and can't be verified here).
+                  soft_skills: list[str] | None = None) -> dict | None:
+    """Ask the LLM to explain why the matched skills are relevant and, for each missing skill,
+    why it matters for the role and the TYPE of free resource to learn it (not specific course
+    names or URLs, which go stale and can't be verified here). Speaks to the user directly as
+    "you", not "they" or "the candidate".
 
-    soft_skills, if given, are the role's required soft skills -- described as qualities to
-    demonstrate through experience and in the mock interview, never as something "missing" to
-    study (unlike the software/technical skills in `missing`).
+    soft_skills, if given, are the role's required soft skills -- described in the result as
+    qualities to demonstrate through experience and in the mock interview, never as something
+    "missing" to study (unlike the software/technical skills in `missing`).
 
-    The model is read from OPENAI_MODEL in .env (default gpt-4o-mini). Returns plain text.
+    Returns None if there are no missing skills (nothing to explain). Otherwise a dict:
+    {"summary": str, "missing": [{"skill": str, "why": str, "learn": str}, ...], "soft_skills":
+    str} -- "soft_skills" is present only when `soft_skills` was given and the model included it.
+
+    The model is read from OPENAI_MODEL in .env (default gpt-4o-mini) and asked for JSON only.
+    Raises RuntimeError if OPENAI_API_KEY is missing, the API call fails, or the model's JSON
+    reply is still invalid after one retry (same retry pattern as modules.interview._ask_json).
     """
     if not missing:
-        return "No missing skills, so there is nothing to explain."
+        return None
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set. Add it to .env to use skill gap explanations.")
 
     model = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)
-    have_part = f"They already have: {', '.join(matched)}." if matched else (
-        "They don't yet have any of the skills this role lists."
+    client = OpenAI(api_key=api_key)
+    have_part = f"You already have: {', '.join(matched)}." if matched else (
+        "You don't yet have any of the skills this role lists."
     )
-    soft_part = (
-        f" This role also values these soft skills: {', '.join(soft_skills)}. Briefly note they "
-        "are best demonstrated through experience and interview practice, not studied like the "
-        "missing skills above."
+    soft_instruction = (
+        f' Also include a "soft_skills" field: one sentence noting that '
+        f'{", ".join(soft_skills)} are best demonstrated through experience and interview '
+        "practice, not studied like the missing skills above."
         if soft_skills else ""
     )
     prompt = (
-        f"A fresh graduate is applying for the job '{job_title}'. {have_part} "
-        f"They are missing: {', '.join(missing)}.{soft_part} In at most 90 words total: one short "
-        "sentence on why the skills they already have are relevant, then exactly one line per "
-        "missing skill, each line stating why that skill matters for the role AND the TYPE of free "
-        "resource to learn it (e.g. official documentation, a free online course, video tutorials, "
-        "a practice project) in that same line -- do not name specific course titles, providers or "
-        "URLs, and do not use nested sub-bullets or a separate \"Learning Resource\" heading."
+        f"You are a fresh graduate applying for the job '{job_title}'. {have_part} You are "
+        f"missing: {', '.join(missing)}. Speak to the user directly as \"you\" throughout, never "
+        'in the third person. Reply with JSON only in this exact form: {"summary": "<one sentence '
+        'on why the skills you already have are relevant>", "missing": [{"skill": "<exact '
+        'missing skill name>", "why": "<one short sentence, at most 20 words, on why it matters '
+        'for this role>", "learn": "<type of free resource, e.g. Official documentation, Free '
+        'online course, Video tutorials, Practice project>"}, ...]}' + soft_instruction +
+        " Do not name specific course titles, providers or URLs."
     )
-    try:
-        response = OpenAI(api_key=api_key).chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=EXPLAIN_TIMEOUT,
-        )
-    except AuthenticationError as e:
-        raise RuntimeError("OpenAI rejected OPENAI_API_KEY (invalid or revoked). Check .env.") from e
-    except APIError as e:
-        raise RuntimeError(f"OpenAI request failed ({type(e).__name__}). Try again later.") from e
-    return response.choices[0].message.content.strip()
+
+    for _ in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                timeout=EXPLAIN_TIMEOUT,
+            )
+        except AuthenticationError as e:
+            raise RuntimeError("OpenAI rejected OPENAI_API_KEY (invalid or revoked). Check .env.") from e
+        except APIError as e:
+            raise RuntimeError(f"OpenAI request failed ({type(e).__name__}). Try again later.") from e
+        try:
+            raw = json.loads(response.choices[0].message.content)
+        except json.JSONDecodeError:
+            continue
+        cleaned = _clean_explanation(raw, missing)
+        if cleaned is None:
+            continue
+        if soft_skills:
+            soft_text = raw.get("soft_skills") if isinstance(raw, dict) else None
+            if isinstance(soft_text, str) and soft_text.strip():
+                cleaned["soft_skills"] = soft_text.strip()
+        return cleaned
+    raise RuntimeError("The model did not return a valid explanation after retrying.")

@@ -76,7 +76,7 @@ OPENAI_API_KEY=your-api-key-here
 
 ### 3. Prepare the data
 
-The dataset and embeddings are not stored in the repository because of their size. Generate them with the notebooks in `notebooks/`:
+The processed dataset (`data/jobs_entry_skills.csv`) and embeddings (`data/job_embeddings.npy`) are included in the repository, so the app runs as soon as you clone it -- no extra step needed. The notebooks in `notebooks/` are only needed if you want to regenerate them (for example, with an updated JobStreet dataset):
 
 1. Run `01 data_preparation.ipynb` to download and filter the JobStreet dataset to entry-level jobs.
 2. Run `notebooks/encode_mpnet_lean.py` to encode the job postings.
@@ -131,3 +131,4 @@ Supervisor: Dr. Norsyela binti Muhammad Noor Mathivanan
 ## Acknowledgements
 
 - Job postings dataset: Mahadan, M. A. (2024). *JobStreet job postings dataset* [Data set]. Hugging Face. https://huggingface.co/datasets/azrai99/job-dataset
+- Job postings are derived from the publicly available JobStreet dataset by Mahadan (2024) and are used for academic purposes only.

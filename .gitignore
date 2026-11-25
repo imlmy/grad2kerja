@@ -19,6 +19,8 @@ venv/
 # Dataset (regenerate via notebooks 01/02)
 data/*.csv
 data/*.npy
+!data/jobs_entry_skills.csv
+!data/job_embeddings.npy
 
 # Cached embeddings (regenerate via notebooks/encode_mpnet_lean.py)
 notebooks/.cache/

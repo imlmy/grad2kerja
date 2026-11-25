@@ -119,7 +119,6 @@ python scripts/test_backend.py     # uses a temporary database; makes real API c
 ## Limitations
 
 - Job listings come from a static dataset, not live job portals.
-- Matching is based on semantic similarity and does not consider the candidate's years of experience.
 - The skill dictionary is fixed and may miss newer or very specialised skills.
 - AI-generated questions and scores are practice guidance only and may vary between runs.
 
